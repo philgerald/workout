@@ -514,7 +514,9 @@ function todayDayConfig(){
   return week[idx];
 }
 function fmtDate(iso){
+  if(!iso) return "";
   const d = new Date(iso+"T00:00:00");
+  if(isNaN(d)) return String(iso);
   return `${d.getMonth()+1}/${d.getDate()}`;
 }
 
@@ -538,21 +540,90 @@ function parseCSV(text){
   }
   if(field.length || row.length){ row.push(field); rows.push(row); }
   if(!rows.length) return [];
-  const headers = rows[0].map(h=>h.trim().toLowerCase());
-  return rows.slice(1).filter(r=>r.some(v=>v.trim()!=="")).map(r=>{
+
+  const FIELD_ORDER = ["date","time","description","calories","protein","carbs","fat"];
+  const detected = rows[0].map(matchHeader);
+  const looksLikeHeader = detected.filter(Boolean).length >= 2;
+  const headers = looksLikeHeader ? detected : FIELD_ORDER;   // no header row → assume the documented column order
+  const dataRows = looksLikeHeader ? rows.slice(1) : rows;
+
+  lastCsvHeaderDetected = looksLikeHeader;
+
+  return dataRows.filter(r=>r.some(v=>v.trim()!=="")).map(r=>{
     const obj = {};
-    headers.forEach((h,i)=>obj[h]=(r[i]||"").trim());
+    headers.forEach((h,i)=>{ if(h) obj[h] = (r[i]||"").trim(); });
     return {
-      date: obj.date,
-      time: obj.time,
-      description: obj.description,
-      calories: Number(obj.calories)||0,
-      protein: Number(obj.protein)||0,
-      carbs: Number(obj.carbs)||0,
-      fat: Number(obj.fat)||0,
+      date: normalizeDate(obj.date),
+      time: normalizeTime(obj.time),
+      description: obj.description || "",
+      calories: toNum(obj.calories),
+      protein: toNum(obj.protein),
+      carbs: toNum(obj.carbs),
+      fat: toNum(obj.fat),
       source: obj.source || "sheet",
     };
   });
+}
+
+let lastCsvHeaderDetected = true;
+
+// accepts english/chinese headers, any case, with or without unit suffixes like "(g)" / "熱量 kcal"
+const HEADER_ALIASES = {
+  date: ["date","日期","day","時間日期"],
+  time: ["time","時間","时间","時刻"],
+  description: ["description","desc","food","item","note","描述","食物","食物描述","品項","內容","餐點"],
+  calories: ["calories","calorie","cal","kcal","energy","熱量","卡路里","大卡","卡"],
+  protein: ["protein","蛋白質","蛋白质","蛋白"],
+  carbs: ["carbs","carb","carbohydrate","carbohydrates","碳水","碳水化合物","醣類"],
+  fat: ["fat","fats","脂肪"],
+};
+function matchHeader(raw){
+  const h = String(raw||"")
+    .toLowerCase()
+    .replace(/[（(].*?[)）]/g,"")      // drop "(g)" / "（公克）"
+    .replace(/kcal|公克|克|\bg\b/g,"")
+    .replace(/[\s_\-*]/g,"")
+    .trim();
+  if(!h) return null;
+  for(const key of Object.keys(HEADER_ALIASES)){
+    if(HEADER_ALIASES[key].some(a=>h===a || h.startsWith(a))) return key;
+  }
+  return null;
+}
+
+// "650", "650 kcal", "45g", "1,200", "約 45" → number
+function toNum(v){
+  if(v == null) return 0;
+  const m = String(v).replace(/,/g,"").match(/-?\d+(\.\d+)?/);
+  return m ? Number(m[0]) : 0;
+}
+
+// Sheets often re-formats the date on export: 2026/7/31, 7/31/2026, 2026-07-31T00:00:00, 2026年7月31日 …
+function normalizeDate(v){
+  const s = String(v||"").trim();
+  if(!s) return "";
+  const iso = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if(iso) return `${iso[1]}-${pad2(iso[2])}-${pad2(iso[3])}`;
+  const cn = s.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  if(cn) return `${cn[1]}-${pad2(cn[2])}-${pad2(cn[3])}`;
+  const us = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);   // M/D/YYYY (en_US export)
+  if(us) return `${us[3]}-${pad2(us[1])}-${pad2(us[2])}`;
+  const d = new Date(s);
+  if(!isNaN(d)) return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  return s;
+}
+
+// "7:00:00", "7:00 AM", "下午 1:00" → "07:00"
+function normalizeTime(v){
+  const s = String(v||"").trim();
+  if(!s) return "";
+  const m = s.match(/(\d{1,2}):(\d{2})/);
+  if(!m) return s;
+  let h = Number(m[1]);
+  const pm = /pm|下午|晚上/i.test(s), am = /am|上午|早上/i.test(s);
+  if(pm && h < 12) h += 12;
+  if(am && h === 12) h = 0;
+  return `${pad2(h)}:${m[2]}`;
 }
 
 function loadMeals(){
@@ -634,6 +705,14 @@ function renderAll(){
           <div class="lmeta">${m.calories||0} kcal · P${m.protein||0} C${m.carbs||0} F${m.fat||0}</div>
         </div>
       </div>`).join("");
+
+    // diagnostic: rows loaded but every macro is 0 → almost always a header-row / column-name problem
+    const remote = meals.filter(m=>m.source !== "local");
+    if(remote.length && remote.every(m=>!m.calories && !m.protein && !m.carbs && !m.fat)){
+      mealEl.innerHTML += `<div class="card"><p class="muted">⚠️ 讀到 ${remote.length} 筆紀錄，但營養數值全部是 0。請檢查 Google Sheet 第一列標題是否為
+      <code>date, time, description, calories, protein, carbs, fat</code>${lastCsvHeaderDetected ? "" : "（目前偵測不到標題列，已改用預設欄位順序讀取）"}，
+      以及數字欄位是否真的有寫入。</p></div>`;
+    }
   }
 }
 
@@ -721,22 +800,50 @@ document.getElementById("mfCopyBtn").onclick = () => {
 // Uses mode:"no-cors" like the manual-entry write: some mobile browsers (Safari/iOS WebKit)
 // fail to read the response across Apps Script's redirect chain ("Load failed"), so we fire
 // the request, then re-fetch the Sheet after a delay instead of trying to read a JSON reply.
-function triggerParseInbox(statusEl, prefix){
+async function triggerParseInbox(statusEl, prefix){
   statusEl.textContent = prefix + "已送出分析請求…（Gemini 分析需要幾秒到十幾秒）";
-  return fetch(`${MEALS_WRITE_URL}?action=parseInbox`, { mode: "no-cors" })
-    .then(() => {
+
+  // First try a normal (readable) request so server-side errors can actually be shown.
+  // If the browser can't read it (Safari/iOS sometimes fails across Apps Script's redirect),
+  // fall back to the old fire-and-forget + delay behaviour.
+  let report = null;
+  try {
+    const res = await fetch(`${MEALS_WRITE_URL}?action=parseInbox`);
+    if(res.ok) report = await res.json();
+  } catch(err){
+    try {
+      await fetch(`${MEALS_WRITE_URL}?action=parseInbox`, { mode: "no-cors" });
       statusEl.textContent = prefix + "處理中，8 秒後自動確認 Sheet 最新內容…";
-      return new Promise(resolve => setTimeout(resolve, 8000));
-    })
-    .then(() => loadMeals())
-    .then(meals => {
-      cachedRemoteMeals = meals;
-      renderAll();
-      statusEl.textContent = prefix + "已確認 Sheet 最新內容，飲食紀錄清單已更新。如果沒看到新紀錄，可能還在處理中，稍後可以再按一次。";
-    })
-    .catch(()=>{
+      await new Promise(r => setTimeout(r, 8000));
+    } catch(err2){
       statusEl.textContent = prefix + "呼叫失敗，請檢查網路連線後再試一次。";
-    });
+      return;
+    }
+  }
+
+  // surface whatever the Apps Script actually said
+  if(report && report.ok === false){
+    statusEl.textContent = prefix + "後端回報錯誤：" + (report.error || "未知錯誤");
+    return;
+  }
+  if(report && report.failed && report.failed.length){
+    statusEl.textContent = prefix + "有照片分析失敗：" + report.failed.join("；");
+    return;
+  }
+  if(report && report.processed && report.processed.length === 0){
+    statusEl.textContent = prefix + "收件匣裡沒有待處理的照片（可能已經處理過了）。";
+    return;
+  }
+
+  try {
+    cachedRemoteMeals = await loadMeals();
+    renderAll();
+    const n = report && report.processed ? report.processed.length : null;
+    statusEl.textContent = prefix + (n ? `已分析 ${n} 張照片，` : "") +
+      "飲食紀錄清單已更新。如果沒看到新紀錄，可能還在處理中，稍後可以再按一次。";
+  } catch(err){
+    statusEl.textContent = prefix + "重新讀取 Sheet 失敗：" + err.message;
+  }
 }
 
 // downscale + re-encode as JPEG in the browser before upload (keeps requests small/fast)
