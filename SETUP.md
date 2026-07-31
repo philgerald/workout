@@ -28,14 +28,18 @@
 3. Claude 把這筆記錄加進 `data/meals.json`，commit 並 push
 4. 重新整理網頁就會更新
 
-### 方式 B：手機用 Gemini App 寫入 Google Sheet（全程手機完成）
+### 方式 B：手機拍照給 AI 估算，貼上 Google Sheet（全程手機完成）
+
+Claude／Gemini App 目前沒有寫入你 Google Sheet 的權限，所以是「AI 估算 → 你複製貼上」，不是全自動：
 
 1. 建立一個 Google Sheet，第一列（標題列）依序填：`date,time,description,calories,protein,carbs,fat`
    - `date` 格式 `2026-07-31`，`time` 格式 `07:00`，其餘數字欄位單位是 kcal / 公克
 2. 在 Google Sheet 選單 **檔案 → 共用 → 發布到網路**，選這個工作表、格式選 **CSV**，發布後複製那個網址
 3. 打開 [index.html](index.html)，找到 `const MEALS_CSV_URL = "";` 這一行，把網址貼進雙引號裡
-4. 之後在手機用 Gemini App 傳食物照片，請它幫你把估算結果（日期、時間、食物描述、熱量、蛋白質、碳水、脂肪）新增一列到這個 Google Sheet
-5. 網頁重新整理就會自動抓 Sheet 最新內容顯示
+4. 手機傳食物照片給 Claude 或 Gemini，請它輸出成**一行、用 Tab 分隔**的文字，可以直接複製這段指令用：
+   > 幫我看這張食物照片，估算熱量和 macros，用 Tab 分隔輸出一行，格式：日期(YYYY-MM-DD) Tab 時間(HH:MM) Tab 食物描述 Tab 熱量 Tab 蛋白質 Tab 碳水 Tab 脂肪，不要有其他文字
+5. 複製 AI 回傳的那一行文字，打開手機 Google Sheet App，點新的一列第一格，**貼上**——因為是 Tab 分隔，貼上時會自動切成七個欄位，不用手動一格一格打
+6. 網頁重新整理就會自動抓 Sheet 最新內容顯示
 
 **注意**：CSV 發布網址是公開的，任何人拿到網址都能看到裡面資料，不需要登入。如果想要不公開，需要改用需要驗證的 Google Sheets API，設定會更複雜，需要的話再跟我說。
 
