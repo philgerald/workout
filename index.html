@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>重訓課表 · Recomp Spec</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0F1519; --surface:#171F25; --surface2:#1E2830; --line:#28343D;
+    --text:#EAF0F3; --muted:#8A99A4; --faint:#5A6870;
+    --gym:#FFB020; --run:#35C4B8; --rest:#55636E;
+    --maxw:660px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    background:var(--ink); color:var(--text);
+    font-family:"Inter",system-ui,sans-serif; line-height:1.5;
+    background-image:linear-gradient(rgba(255,255,255,.015) 1px,transparent 1px);
+    background-size:100% 34px;
+    padding-bottom:56px;
+  }
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 16px}
+  .mono{font-family:"JetBrains Mono",monospace}
+
+  /* Header */
+  header{border-bottom:1px solid var(--line);padding:26px 0 20px;position:relative}
+  .eyebrow{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--gym);margin-bottom:10px}
+  h1{font-family:"Space Grotesk",sans-serif;font-weight:700;font-size:30px;letter-spacing:-.01em;line-height:1.05}
+  .specline{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .chip{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted);
+    border:1px solid var(--line);border-radius:999px;padding:4px 10px}
+
+  section{padding:24px 0;border-bottom:1px solid var(--line)}
+  .kicker{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--faint);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .kicker::before{content:"";width:16px;height:1px;background:var(--gym)}
+
+  /* Weekly track */
+  .week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .day{background:var(--surface);border:1px solid var(--line);border-radius:10px;
+    padding:10px 4px;text-align:center;position:relative;overflow:hidden}
+  .day .dow{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted)}
+  .day .type{font-size:11px;margin-top:8px;font-weight:600;line-height:1.25}
+  .day .dot{width:6px;height:6px;border-radius:50%;margin:8px auto 0}
+  .day.gym{border-color:rgba(255,176,32,.4)} .day.gym .dot{background:var(--gym)} .day.gym .type{color:var(--gym)}
+  .day.run .dot{background:var(--run)} .day.run .type{color:var(--run)}
+  .day.rest .dot{background:var(--rest)} .day.rest .type{color:var(--muted)}
+  .legend{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap}
+  .legend span{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .legend i{width:8px;height:8px;border-radius:50%;display:inline-block}
+
+  /* Tabs */
+  .tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex:0 0 auto;background:var(--surface);border:1px solid var(--line);color:var(--muted);
+    font-family:"Space Grotesk",sans-serif;font-weight:600;font-size:14px;
+    padding:10px 16px;border-radius:10px;cursor:pointer;transition:all .18s ease;white-space:nowrap}
+  .tab[aria-selected="true"]{background:var(--gym);color:#0F1519;border-color:var(--gym)}
+
+  .panel{margin-top:18px}
+  .panel[hidden]{display:none}
+  .dayhead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+  .dayhead h2{font-family:"Space Grotesk",sans-serif;font-size:20px;font-weight:600}
+  .dayhead .focus{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--gym)}
+  .note{font-size:13px;color:var(--muted);margin-bottom:16px}
+
+  /* Exercise groups */
+  .group{margin-bottom:12px;border-radius:12px;overflow:hidden}
+  .group.superset{border:1px solid var(--line);background:var(--surface)}
+  .ss-label{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--gym);padding:8px 12px 4px;display:flex;align-items:center;gap:8px}
+  .ss-label::after{content:"交替做 · 中間不休";color:var(--faint);letter-spacing:.02em;text-transform:none;font-size:10px}
+
+  .ex{display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface2)}
+  .group.superset .ex{background:transparent}
+  .group.superset .ex + .ex{border-top:1px dashed var(--line)}
+  .group.single .ex{border:1px solid var(--line);border-radius:12px}
+  .ex .tag{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:700;color:var(--gym);
+    min-width:26px}
+  .ex .body{flex:1;min-width:0}
+  .ex .name{font-weight:600;font-size:15px}
+  .ex .en{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--faint);margin-top:2px}
+  .ex .reps{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--text);
+    text-align:right;white-space:nowrap}
+  .ex .reps small{display:block;color:var(--muted);font-size:10px;font-weight:400}
+  .yt{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;
+    font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--text);
+    border:1px solid var(--line);border-radius:8px;padding:7px 9px;text-decoration:none;transition:all .18s ease}
+  .yt:hover,.yt:focus-visible{border-color:var(--gym);color:var(--gym)}
+  .yt svg{width:13px;height:13px;flex:0 0 auto}
+
+  /* generic cards */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card h3{font-family:"Space Grotesk",sans-serif;font-size:16px;font-weight:600;margin-bottom:8px}
+  .card p{font-size:14px;color:var(--muted)}
+  .card p b{color:var(--text);font-weight:600}
+
+  /* diet spec rows */
+  .spec{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .spec:last-child{border-bottom:0}
+  .spec .k{color:var(--muted)}
+  .spec .v{font-family:"JetBrains Mono",monospace;color:var(--text);font-weight:500}
+  .spec .v b{color:var(--gym);font-weight:700}
+
+  /* meal plan */
+  .meal-card{margin-bottom:14px}
+  .meal-card h3{display:flex;justify-content:space-between;align-items:baseline}
+  .meal-card h3 small{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted);font-weight:500}
+  .meal-item{padding:10px 0;border-bottom:1px solid var(--line)}
+  .meal-item:last-child{border-bottom:0}
+  .meal-item .mt{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+  .meal-item .mf{font-size:14px}
+  .meal-item .mm{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--faint);margin-top:4px}
+
+  footer{padding:24px 0 8px;color:var(--faint);font-size:12px;font-family:"JetBrains Mono",monospace;line-height:1.7}
+  footer b{color:var(--gym)}
+
+  a:focus-visible,.tab:focus-visible{outline:2px solid var(--gym);outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+  @media (max-width:420px){
+    .ex{flex-wrap:wrap}
+    .ex .reps{order:3;margin-left:38px;text-align:left}
+    .yt{order:4}
+    .day .type{font-size:10px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Recomp · 4 天／週 · 上下肢分化</div>
+    <h1>我的重訓課表</h1>
+    <div class="specline">
+      <span class="chip">目標 增肌減脂並重</span>
+      <span class="chip">每次 ≤ 45 分鐘</span>
+      <span class="chip">超級組編排</span>
+      <span class="chip">75kg / 172cm</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="kicker">本週安排</div>
+    <div class="week" id="week"></div>
+    <div class="legend">
+      <span><i style="background:var(--gym)"></i>健身房</span>
+      <span><i style="background:var(--run)"></i>跑步 20–30 分</span>
+      <span><i style="background:var(--rest)"></i>休息</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker">訓練日 · 點動作看教學</div>
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div id="panels"></div>
+  </section>
+
+  <section>
+    <div class="kicker">跑步日怎麼跑</div>
+    <div class="card">
+      <h3>Zone 2 · 輕鬆配速</h3>
+      <p>用<b>能邊跑邊講話</b>的速度跑 20–30 分鐘就好。目的是補心肺、幫 recomp 多燒一點脂肪；不要跑到很喘，否則會吃掉重訓的恢復。跑步排在非重訓日，讓腿有時間長回來。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker">飲食目標 · 熱量循環</div>
+    <div class="card">
+      <div class="spec"><span class="k">健身房日 熱量</span><span class="v"><b>~2500</b> kcal</span></div>
+      <div class="spec"><span class="k">跑步 / 休息日 熱量</span><span class="v"><b>~2050</b> kcal</span></div>
+      <div class="spec"><span class="k">蛋白質（每天固定）</span><span class="v"><b>160</b> g</span></div>
+      <div class="spec"><span class="k">碳水（擺訓練前後）</span><span class="v">~270 g</span></div>
+      <div class="spec"><span class="k">脂肪</span><span class="v">~65 g</span></div>
+      <p style="margin-top:12px">一週平均下來是微赤字，練的當天有能量推重量，休息日壓低幫減脂。蛋白質永遠<b>優先湊滿</b>。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker">每日餐單範例 · 蛋白質優先湊滿</div>
+
+    <div class="card meal-card">
+      <h3 style="color:var(--gym)">健身房日 <small>~2500 kcal · 蛋白 160g · 碳水 270g · 脂肪 65g</small></h3>
+      <div class="meal-item">
+        <div class="mt">07:00 早餐</div>
+        <div class="mf">全蛋 2 顆 + 蛋白 1 杯炒蛋、全麥吐司 2 片、香蕉 1 根</div>
+        <div class="mm">~550 kcal · P35 C70 F15</div>
+      </div>
+      <div class="meal-item">
+        <div class="mt">12:00 午餐</div>
+        <div class="mf">雞胸肉 150g、糙米飯 1.5 碗、炒時蔬（橄欖油 1 匙）</div>
+        <div class="mm">~650 kcal · P45 C80 F15</div>
+      </div>
+      <div class="meal-item">
+        <div class="mt">15:30 訓練前點心</div>
+        <div class="mf">香蕉 1 根 + 乳清蛋白 1 匙</div>
+        <div class="mm">~250 kcal · P25 C35 F2</div>
+      </div>
+      <div class="meal-item">
+        <div class="mt">19:00 訓練後晚餐</div>
+        <div class="mf">鮭魚或牛肉 150g、白飯 1.5 碗、烤蔬菜</div>
+        <div class="mm">~700 kcal · P40 C70 F20</div>
+      </div>
+      <div class="meal-item">
+        <div class="mt">睡前點心</div>
+        <div class="mf">希臘優格 1 杯 + 堅果一小把</div>
+        <div class="mm">~350 kcal · P15 C15 F13</div>
+      </div>
+    </div>
+
+    <div class="card meal-card">
+      <h3 style="color:var(--run)">跑步／休息日 <small>~2050 kcal · 蛋白 160g · 碳水 190g · 脂肪 65g</small></h3>
+      <div class="meal-item">
+        <div class="mt">07:00 早餐</div>
+        <div class="mf">全蛋 1 顆 + 蛋白 1 杯炒蛋、燕麥 40g</div>
+        <div class="mm">~400 kcal · P35 C40 F12</div>
+      </div>
+      <div class="meal-item">
+        <div class="mt">12:00 午餐</div>
+        <div class="mf">雞胸肉 150g、藜麥或糙米 1 碗、大量蔬菜、酪梨 1/4 顆</div>
+        <div class="mm">~550 kcal · P45 C45 F18</div>
+      </div>
+      <div class="meal-item">
+        <div class="mt">跑步後點心</div>
+        <div class="mf">乳清蛋白 1 匙 + 莓果一把</div>
+        <div class="mm">~180 kcal · P25 C15 F2</div>
+      </div>
+      <div class="meal-item">
+        <div class="mt">19:00 晚餐</div>
+        <div class="mf">白肉魚或雞胸 150g、地瓜 1 顆、炒青菜（少油）</div>
+        <div class="mm">~550 kcal · P40 C70 F10</div>
+      </div>
+      <div class="meal-item">
+        <div class="mt">睡前點心</div>
+        <div class="mf">茅屋起司或優格 + 杏仁一小把</div>
+        <div class="mm">~370 kcal · P15 C20 F23</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p>以上是範例，食材可依喜好與方便性替換，但盡量維持每餐都有<b>蛋白質來源</b>。訓練前後那兩餐把碳水擺重一點，其餘時段可以彈性。若某天吃不到目標熱量，優先把蛋白質補滿，脂肪和碳水可以有落差。</p>
+    </div>
+  </section>
+
+  <footer>
+    <div>// 進步核心：同一動作 <b>每週重量或次數多一點點</b>（漸進超負荷）</div>
+    <div>// 上次總量 4,289 kg — 目標讓這個數字慢慢往上</div>
+    <div>// 前 2 週留 RIR 2–3，第 3 週起最後一組推到 RIR 1–2</div>
+  </footer>
+
+</div>
+
+<script>
+const YT = "https://www.youtube.com/results?search_query=";
+const week = [
+  {dow:"週一", type:"上肢 A", cls:"gym"},
+  {dow:"週二", type:"跑步",   cls:"run"},
+  {dow:"週三", type:"下肢 A", cls:"gym"},
+  {dow:"週四", type:"休息",   cls:"rest"},
+  {dow:"週五", type:"上肢 B", cls:"gym"},
+  {dow:"週六", type:"跑步",   cls:"run"},
+  {dow:"週日", type:"下肢 B", cls:"gym"},
+];
+const days = [
+  {id:"上肢A", focus:"力量 · 低次數", note:"熱身 5 分鐘。超級組間休 60–90 秒。",
+   ex:[
+    {tag:"A1", zh:"機械胸推", en:"Machine Chest Press", reps:"4 × 6–10", q:"機械胸推 教學"},
+    {tag:"A2", zh:"坐姿划船", en:"Seated Cable Row", reps:"4 × 8–10", q:"坐姿划船 教學"},
+    {tag:"B1", zh:"機械肩推", en:"Machine Shoulder Press", reps:"3 × 8–12", q:"機械肩推 教學"},
+    {tag:"B2", zh:"滑輪下拉", en:"Lat Pulldown", reps:"3 × 8–12", q:"滑輪下拉 教學"},
+    {tag:"C1", zh:"啞鈴側平舉", en:"Lateral Raise", reps:"3 × 15", q:"啞鈴側平舉 教學"},
+    {tag:"C2", zh:"二頭彎舉", en:"Bicep Curl", reps:"3 × 12", q:"啞鈴二頭彎舉 教學"},
+    {tag:"–", zh:"三頭下壓", en:"Tricep Pushdown", reps:"2 × 12", q:"三頭下壓 教學"},
+   ]},
+  {id:"下肢A", focus:"深蹲主導", note:"熱身 5 分鐘。主項深蹲/腿推單獨做、休 2 分鐘。",
+   ex:[
+    {tag:"A", zh:"深蹲 或 腿推", en:"Squat / Leg Press", reps:"4 × 6–10", q:"腿推 教學"},
+    {tag:"B1", zh:"羅馬尼亞硬舉", en:"Romanian Deadlift", reps:"3 × 10", q:"羅馬尼亞硬舉 教學"},
+    {tag:"B2", zh:"腿伸展", en:"Leg Extension", reps:"3 × 15", q:"腿伸展 教學"},
+    {tag:"C1", zh:"保加利亞分腿蹲", en:"Bulgarian Split Squat", reps:"3 × 10", q:"保加利亞分腿蹲 教學"},
+    {tag:"C2", zh:"站姿小腿提踵", en:"Standing Calf Raise", reps:"3 × 15", q:"站姿小腿提踵 教學"},
+    {tag:"–", zh:"核心（棒式）", en:"Plank / Core", reps:"2 組", q:"棒式 教學"},
+   ]},
+  {id:"上肢B", focus:"增肌 · 換角度", note:"熱身 5 分鐘。超級組間休 60–90 秒。",
+   ex:[
+    {tag:"A1", zh:"上斜胸推", en:"Incline Chest Press", reps:"4 × 8–12", q:"上斜胸推 教學"},
+    {tag:"A2", zh:"滑輪下拉", en:"Lat Pulldown", reps:"4 × 8–12", q:"滑輪下拉 教學"},
+    {tag:"B1", zh:"蝴蝶機夾胸", en:"Pec Deck Fly", reps:"3 × 12–15", q:"蝴蝶機夾胸 教學"},
+    {tag:"B2", zh:"坐姿划船機", en:"Seated Machine Row", reps:"3 × 10–12", q:"坐姿划船機 教學"},
+    {tag:"C1", zh:"滑輪側平舉", en:"Cable Lateral Raise", reps:"3 × 15", q:"滑輪側平舉 教學"},
+    {tag:"C2", zh:"Face Pull", en:"Face Pull", reps:"3 × 15", q:"face pull 教學"},
+    {tag:"–", zh:"二頭 / 三頭", en:"Biceps / Triceps", reps:"各 2 組", q:"二頭三頭 訓練 教學"},
+   ]},
+  {id:"下肢B", focus:"腿後主導", note:"熱身 5 分鐘。主項硬舉單獨做、休 2 分鐘。",
+   ex:[
+    {tag:"A", zh:"羅馬尼亞 或 傳統硬舉", en:"Deadlift / RDL", reps:"4 × 6–10", q:"羅馬尼亞硬舉 教學"},
+    {tag:"B1", zh:"腿推", en:"Leg Press", reps:"3 × 10–12", q:"腿推 教學"},
+    {tag:"B2", zh:"腿後勾", en:"Lying Leg Curl", reps:"3 × 15", q:"腿後勾 教學"},
+    {tag:"C1", zh:"髖外展", en:"Hip Abduction", reps:"3 × 15", q:"髖外展機 教學"},
+    {tag:"C2", zh:"坐姿小腿提踵", en:"Seated Calf Raise", reps:"3 × 15", q:"坐姿小腿提踵 教學"},
+    {tag:"–", zh:"核心", en:"Core", reps:"2 組", q:"核心訓練 教學"},
+   ]},
+];
+
+// weekly track
+document.getElementById("week").innerHTML = week.map(d=>`
+  <div class="day ${d.cls}">
+    <div class="dow">${d.dow}</div>
+    <div class="type">${d.type}</div>
+    <div class="dot"></div>
+  </div>`).join("");
+
+// tabs + panels
+const tabs = document.getElementById("tabs");
+const panels = document.getElementById("panels");
+const ytIcon = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.6 7.2s-.2-1.4-.8-2c-.8-.8-1.6-.8-2-.9C15.9 4 12 4 12 4h0s-3.9 0-6.8.3c-.4.1-1.2.1-2 .9-.6.6-.8 2-.8 2S2 8.8 2 10.4v1.2c0 1.6.2 3.2.2 3.2s.2 1.4.8 2c.8.8 1.8.8 2.2.9 1.6.1 6.8.2 6.8.2s3.9 0 6.8-.3c.4-.1 1.2-.1 2-.9.6-.6.8-2 .8-2s.2-1.6.2-3.2v-1.2c0-1.6-.2-3.2-.2-3.2zM10 14.5v-5l4.2 2.5-4.2 2.5z"/></svg>';
+
+days.forEach((day,i)=>{
+  const t = document.createElement("button");
+  t.className="tab"; t.textContent=day.id; t.setAttribute("role","tab");
+  t.setAttribute("aria-selected", i===0?"true":"false");
+  t.onclick=()=>select(i);
+  tabs.appendChild(t);
+
+  // group exercises by leading letter of tag
+  const groups=[]; 
+  day.ex.forEach(e=>{
+    const key = /^[A-Z]/.test(e.tag)? e.tag[0] : "_"+e.tag;
+    let g = groups.find(g=>g.key===key);
+    if(!g){g={key,items:[]};groups.push(g);}
+    g.items.push(e);
+  });
+
+  const p=document.createElement("div");
+  p.className="panel"; p.setAttribute("role","tabpanel"); if(i!==0)p.hidden=true;
+  p.innerHTML = `
+    <div class="dayhead"><h2>${day.id}</h2><span class="focus">${day.focus}</span></div>
+    <div class="note">${day.note}</div>
+    ${groups.map(g=>{
+      const ss = g.items.length>1;
+      return `<div class="group ${ss?'superset':'single'}">
+        ${ss?`<div class="ss-label">超級組</div>`:``}
+        ${g.items.map(e=>`
+          <div class="ex">
+            <span class="tag">${e.tag}</span>
+            <div class="body">
+              <div class="name">${e.zh}</div>
+              <div class="en">${e.en}</div>
+            </div>
+            <span class="reps">${e.reps}</span>
+            <a class="yt" href="${YT+encodeURIComponent(e.q)}" target="_blank" rel="noopener">${ytIcon}教學</a>
+          </div>`).join("")}
+      </div>`;
+    }).join("")}
+  `;
+  panels.appendChild(p);
+});
+
+function select(i){
+  [...tabs.children].forEach((t,j)=>t.setAttribute("aria-selected", j===i?"true":"false"));
+  [...panels.children].forEach((p,j)=>p.hidden = j!==i);
+}
+</script>
+</body>
+</html>
