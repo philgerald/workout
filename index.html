@@ -273,8 +273,7 @@
         <label class="field"><span>脂肪 g</span><input type="number" id="mfFat" min="0" inputmode="numeric"></label>
       </div>
       <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
-        <button class="btn" id="mfAdd">加入本機紀錄</button>
-        <button class="btn-ghost" id="mfClearLocal" style="border-radius:8px;padding:9px 16px;cursor:pointer">清除本機暫存</button>
+        <button class="btn" id="mfAdd">加入記錄</button>
       </div>
       <div id="mfCopyRow" hidden style="margin-top:14px">
         <div class="field"><span>貼到 Google Sheet 用（Tab 分隔，貼上新一列第一格會自動分欄）</span></div>
@@ -292,7 +291,6 @@
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
         <label class="btn" for="mfPhotoInput" style="display:inline-flex;align-items:center;cursor:pointer">拍照 / 選擇照片上傳</label>
         <input type="file" id="mfPhotoInput" accept="image/*" hidden>
-        <button class="btn-ghost" id="mfParseInbox" style="border-radius:8px;padding:9px 16px;cursor:pointer">改解析 Drive 裡既有照片</button>
       </div>
       <p class="muted" id="mfParseStatus" style="margin-top:12px"></p>
     </div>
@@ -719,13 +717,6 @@ document.getElementById("mfCopyBtn").onclick = () => {
     });
 };
 
-document.getElementById("mfClearLocal").onclick = () => {
-  if(confirm("確定要清除本機暫存的飲食紀錄嗎？（貼到 Google Sheet 後可以清掉，避免重複顯示）")){
-    setLocalMeals([]);
-    renderAll();
-  }
-};
-
 // ---- parse Google Drive inbox via Apps Script (Gemini runs server-side, key never touches the browser) ----
 function triggerParseInbox(statusEl, prefix){
   statusEl.textContent = prefix + "分析中…（張數多的話可能要等一下）";
@@ -747,15 +738,6 @@ function triggerParseInbox(statusEl, prefix){
       statusEl.textContent = prefix + "呼叫失敗（可能是網路或 CORS 問題）。如果 Sheet 裡其實已經寫入了，忽略這則訊息即可，重新整理頁面確認。";
     });
 }
-
-document.getElementById("mfParseInbox").onclick = () => {
-  const statusEl = document.getElementById("mfParseStatus");
-  if(!MEALS_WRITE_URL){
-    statusEl.textContent = "還沒設定 MEALS_WRITE_URL，無法呼叫 Apps Script。";
-    return;
-  }
-  triggerParseInbox(statusEl, "");
-};
 
 // downscale + re-encode as JPEG in the browser before upload (keeps requests small/fast)
 function resizeImageFile(file, maxDim=1280, quality=0.8){
