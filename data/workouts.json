@@ -1,1 +1,13 @@
-[]
+[
+  {
+    "id": "garmin-23794338383",
+    "date": "2026-07-31",
+    "type": "strength_training",
+    "typeLabel": "重量訓練",
+    "durationMin": 47,
+    "calories": 217,
+    "avgHr": 102,
+    "distanceKm": null,
+    "source": "garmin"
+  }
+]
