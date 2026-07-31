@@ -121,6 +121,21 @@
   .meal-item .mf{font-size:14px}
   .meal-item .mm{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--faint);margin-top:4px}
 
+  /* records */
+  .muted{color:var(--muted);font-size:14px}
+  .progress-row{margin-bottom:10px}
+  .progress-row:last-child{margin-bottom:0}
+  .progress-row .pr-label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px;font-family:"JetBrains Mono",monospace}
+  .progress-row .pr-label b{color:var(--text)}
+  .progress-bar{height:6px;border-radius:99px;background:var(--surface2);overflow:hidden}
+  .progress-bar i{display:block;height:100%;background:var(--gym);border-radius:99px}
+  .log-item{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px;display:flex;gap:12px;align-items:center}
+  .log-item img{width:44px;height:44px;border-radius:8px;object-fit:cover;flex:0 0 auto}
+  .log-item .lbody{flex:1;min-width:0}
+  .log-item .ldate{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted)}
+  .log-item .ltitle{font-size:14px;margin-top:2px}
+  .log-item .lmeta{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--faint);margin-top:3px}
+
   footer{padding:24px 0 8px;color:var(--faint);font-size:12px;font-family:"JetBrains Mono",monospace;line-height:1.7}
   footer b{color:var(--gym)}
 
@@ -214,6 +229,23 @@
     <div class="card">
       <p>三種方案食材不同、目標熱量與蛋白質相同，一週可以輪流吃避免膩。可依喜好與方便性替換食材，但盡量維持每餐都有<b>蛋白質來源</b>。若某天吃不到目標熱量，優先把蛋白質補滿，脂肪和碳水可以有落差。</p>
     </div>
+  </section>
+
+  <section>
+    <div class="kicker">今日進度</div>
+    <div class="card" id="todayProgress">
+      <p class="muted">載入中…</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker">訓練紀錄 · Garmin 自動同步</div>
+    <div id="workoutLog"><p class="muted">載入中…</p></div>
+  </section>
+
+  <section>
+    <div class="kicker">飲食紀錄 · 拍照 + AI 估算</div>
+    <div id="mealLog"><p class="muted">載入中…</p></div>
   </section>
 
   <footer>
@@ -410,6 +442,83 @@ function renderMealGroup(tabsId, panelId, plans){
 }
 renderMealGroup("gymMealTabs","gymMealPanel",mealPlans.gym);
 renderMealGroup("restMealTabs","restMealPanel",mealPlans.rest);
+
+// ---- real logs: Garmin workouts + AI meal photos, read from data/*.json ----
+function todayStr(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function todayDayConfig(){
+  const idx = (new Date().getDay()+6)%7; // week[] is Mon..Sun
+  return week[idx];
+}
+function fmtDate(iso){
+  const d = new Date(iso+"T00:00:00");
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+
+Promise.all([
+  fetch("data/workouts.json").then(r=>r.ok?r.json():[]).catch(()=>[]),
+  fetch("data/meals.json").then(r=>r.ok?r.json():[]).catch(()=>[]),
+]).then(([workouts, meals])=>{
+
+  // today progress
+  const day = todayDayConfig();
+  const kcalTarget = day.cls==="gym" ? 2500 : 2050;
+  const proteinTarget = 160;
+  const today = todayStr();
+  const todaysMeals = meals.filter(m=>m.date===today);
+  const gotKcal = todaysMeals.reduce((s,m)=>s+(m.calories||0),0);
+  const gotProtein = todaysMeals.reduce((s,m)=>s+(m.protein||0),0);
+  const todaysWorkouts = workouts.filter(w=>w.date===today);
+  const pct = (v,t)=>Math.max(0,Math.min(100, Math.round(v/t*100)));
+
+  document.getElementById("todayProgress").innerHTML = `
+    <p class="muted" style="margin-bottom:12px">今天（${day.dow}・${day.type}）目標 ${kcalTarget} kcal・蛋白 ${proteinTarget}g</p>
+    <div class="progress-row">
+      <div class="pr-label"><span>熱量</span><b>${gotKcal} / ${kcalTarget} kcal</b></div>
+      <div class="progress-bar"><i style="width:${pct(gotKcal,kcalTarget)}%"></i></div>
+    </div>
+    <div class="progress-row">
+      <div class="pr-label"><span>蛋白質</span><b>${gotProtein} / ${proteinTarget} g</b></div>
+      <div class="progress-bar"><i style="width:${pct(gotProtein,proteinTarget)}%;background:var(--run)"></i></div>
+    </div>
+    <p class="muted" style="margin-top:12px">今天已記錄 ${todaysWorkouts.length} 筆訓練、${todaysMeals.length} 筆飲食</p>
+  `;
+
+  // workout log (most recent 14)
+  const workoutEl = document.getElementById("workoutLog");
+  if(!workouts.length){
+    workoutEl.innerHTML = `<div class="card"><p class="muted">還沒有同步到訓練紀錄。設定好 Garmin 自動同步後，這裡會顯示每天的重訓／跑步資料。</p></div>`;
+  } else {
+    const rows = [...workouts].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,14);
+    workoutEl.innerHTML = rows.map(w=>`
+      <div class="log-item">
+        <div class="lbody">
+          <div class="ldate">${fmtDate(w.date)}</div>
+          <div class="ltitle">${w.typeLabel||w.type||"訓練"}</div>
+          <div class="lmeta">${w.durationMin?w.durationMin+" 分":""}${w.calories?" · "+w.calories+" kcal":""}${w.avgHr?" · 平均心率 "+w.avgHr:""}${w.distanceKm?" · "+w.distanceKm+" km":""}</div>
+        </div>
+      </div>`).join("");
+  }
+
+  // meal log (most recent 14)
+  const mealEl = document.getElementById("mealLog");
+  if(!meals.length){
+    mealEl.innerHTML = `<div class="card"><p class="muted">還沒有飲食紀錄。把照片丟進 <b>meals/inbox/</b> 資料夾後，AI 會自動估算並顯示在這裡。</p></div>`;
+  } else {
+    const rows = [...meals].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)).slice(0,14);
+    mealEl.innerHTML = rows.map(m=>`
+      <div class="log-item">
+        ${m.photo?`<img src="${m.photo}" alt="">`:``}
+        <div class="lbody">
+          <div class="ldate">${fmtDate(m.date)} ${m.time||""}</div>
+          <div class="ltitle">${m.description||""}</div>
+          <div class="lmeta">${m.calories||0} kcal · P${m.protein||0} C${m.carbs||0} F${m.fat||0}</div>
+        </div>
+      </div>`).join("");
+  }
+});
 </script>
 </body>
 </html>
