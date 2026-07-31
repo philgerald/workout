@@ -108,9 +108,12 @@
   .spec .v b{color:var(--gym);font-weight:700}
 
   /* meal plan */
-  .meal-card{margin-bottom:14px}
-  .meal-card h3{display:flex;justify-content:space-between;align-items:baseline}
-  .meal-card h3 small{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted);font-weight:500}
+  .meal-group{margin-bottom:18px}
+  .meal-group-h{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;
+    gap:6px;margin-bottom:10px;font-family:"Space Grotesk",sans-serif;font-size:16px;font-weight:600}
+  .meal-group-h small{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted);font-weight:500}
+  .meal-group .tabs{margin-bottom:10px}
+  .meal-card{margin-bottom:0}
   .meal-item{padding:10px 0;border-bottom:1px solid var(--line)}
   .meal-item:last-child{border-bottom:0}
   .meal-item .mt{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;
@@ -184,71 +187,20 @@
   <section>
     <div class="kicker">每日餐單範例 · 蛋白質優先湊滿</div>
 
-    <div class="card meal-card">
-      <h3 style="color:var(--gym)">健身房日 <small>~2500 kcal · 蛋白 160g · 碳水 270g · 脂肪 65g</small></h3>
-      <div class="meal-item">
-        <div class="mt">05:30 訓練前小點</div>
-        <div class="mf">香蕉 1 根 + 半杯乳清蛋白（怕脹氣可只吃香蕉）、黑咖啡</div>
-        <div class="mm">~200 kcal · P10 C35 F2</div>
-      </div>
-      <div class="meal-item">
-        <div class="mt">06:00–06:50 訓練</div>
-        <div class="mf">重訓時段，訓練中補水就好</div>
-        <div class="mm">—</div>
-      </div>
-      <div class="meal-item">
-        <div class="mt">07:00 訓練後早餐</div>
-        <div class="mf">全蛋 2 顆 + 蛋白 1 杯炒蛋、全麥吐司 2 片</div>
-        <div class="mm">~500 kcal · P35 C55 F15</div>
-      </div>
-      <div class="meal-item">
-        <div class="mt">12:00 午餐</div>
-        <div class="mf">雞胸肉 150g、糙米飯 1.5 碗、炒時蔬（橄欖油 1 匙）</div>
-        <div class="mm">~650 kcal · P45 C80 F15</div>
-      </div>
-      <div class="meal-item">
-        <div class="mt">15:30 下午點心</div>
-        <div class="mf">希臘優格 1 杯 + 堅果一小把</div>
-        <div class="mm">~300 kcal · P20 C20 F13</div>
-      </div>
-      <div class="meal-item">
-        <div class="mt">19:00 晚餐</div>
-        <div class="mf">鮭魚或牛肉 150g、白飯 1 碗、烤蔬菜</div>
-        <div class="mm">~850 kcal · P50 C80 F20</div>
-      </div>
+    <div class="meal-group">
+      <h3 class="meal-group-h" style="color:var(--gym)">健身房日 <small>~2500 kcal · 蛋白 160g · 碳水 270g · 脂肪 65g</small></h3>
+      <div class="tabs" id="gymMealTabs" role="tablist"></div>
+      <div class="card meal-card" id="gymMealPanel"></div>
     </div>
 
-    <div class="card meal-card">
-      <h3 style="color:var(--run)">跑步／休息日 <small>~2050 kcal · 蛋白 160g · 碳水 190g · 脂肪 65g</small></h3>
-      <div class="meal-item">
-        <div class="mt">07:00 早餐</div>
-        <div class="mf">全蛋 1 顆 + 蛋白 1 杯炒蛋、燕麥 40g</div>
-        <div class="mm">~400 kcal · P35 C40 F12</div>
-      </div>
-      <div class="meal-item">
-        <div class="mt">12:00 午餐</div>
-        <div class="mf">雞胸肉 150g、藜麥或糙米 1 碗、大量蔬菜、酪梨 1/4 顆</div>
-        <div class="mm">~550 kcal · P45 C45 F18</div>
-      </div>
-      <div class="meal-item">
-        <div class="mt">跑步後點心</div>
-        <div class="mf">乳清蛋白 1 匙 + 莓果一把</div>
-        <div class="mm">~180 kcal · P25 C15 F2</div>
-      </div>
-      <div class="meal-item">
-        <div class="mt">19:00 晚餐</div>
-        <div class="mf">白肉魚或雞胸 150g、地瓜 1 顆、炒青菜（少油）</div>
-        <div class="mm">~550 kcal · P40 C70 F10</div>
-      </div>
-      <div class="meal-item">
-        <div class="mt">睡前點心</div>
-        <div class="mf">茅屋起司或優格 + 杏仁一小把</div>
-        <div class="mm">~370 kcal · P15 C20 F23</div>
-      </div>
+    <div class="meal-group">
+      <h3 class="meal-group-h" style="color:var(--run)">跑步／休息日 <small>~2050 kcal · 蛋白 160g · 碳水 190g · 脂肪 65g</small></h3>
+      <div class="tabs" id="restMealTabs" role="tablist"></div>
+      <div class="card meal-card" id="restMealPanel"></div>
     </div>
 
     <div class="card">
-      <p>以上是範例，食材可依喜好與方便性替換，但盡量維持每餐都有<b>蛋白質來源</b>。訓練前後那兩餐把碳水擺重一點，其餘時段可以彈性。若某天吃不到目標熱量，優先把蛋白質補滿，脂肪和碳水可以有落差。</p>
+      <p>三種方案食材不同、目標熱量與蛋白質相同，一週可以輪流吃避免膩。可依喜好與方便性替換食材，但盡量維持每餐都有<b>蛋白質來源</b>。若某天吃不到目標熱量，優先把蛋白質補滿，脂肪和碳水可以有落差。</p>
     </div>
   </section>
 
@@ -370,6 +322,85 @@ function select(i){
   [...tabs.children].forEach((t,j)=>t.setAttribute("aria-selected", j===i?"true":"false"));
   [...panels.children].forEach((p,j)=>p.hidden = j!==i);
 }
+
+// meal plans — a few interchangeable menus per calorie target
+const mealPlans = {
+  gym: [
+    {label:"方案 A", items:[
+      {mt:"05:30 訓練前小點", mf:"香蕉 1 根 + 半杯乳清蛋白（怕脹氣可只吃香蕉）、黑咖啡", mm:"~200 kcal · P10 C35 F2"},
+      {mt:"06:00–06:50 訓練", mf:"重訓時段，訓練中補水就好", mm:"—"},
+      {mt:"07:00 訓練後早餐", mf:"全蛋 2 顆 + 蛋白 1 杯炒蛋、全麥吐司 2 片", mm:"~500 kcal · P35 C55 F15"},
+      {mt:"12:00 午餐", mf:"雞胸肉 150g、糙米飯 1.5 碗、炒時蔬（橄欖油 1 匙）", mm:"~650 kcal · P45 C80 F15"},
+      {mt:"15:30 下午點心", mf:"希臘優格 1 杯 + 堅果一小把", mm:"~300 kcal · P20 C20 F13"},
+      {mt:"19:00 晚餐", mf:"鮭魚或牛肉 150g、白飯 1 碗、烤蔬菜", mm:"~850 kcal · P50 C80 F20"},
+    ]},
+    {label:"方案 B", items:[
+      {mt:"05:30 訓練前小點", mf:"地瓜（小）半條 + 黑咖啡", mm:"~140 kcal · P3 C30 F1"},
+      {mt:"06:00–06:50 訓練", mf:"重訓時段，訓練中補水就好", mm:"—"},
+      {mt:"07:00 訓練後早餐", mf:"鮭魚御飯糰 1 顆 + 無糖豆漿 500ml + 水煮蛋 2 顆", mm:"~520 kcal · P35 C55 F15"},
+      {mt:"12:00 午餐", mf:"牛肉河粉（去浮油）+ 燙青菜", mm:"~680 kcal · P40 C90 F15"},
+      {mt:"15:30 下午點心", mf:"茶葉蛋 2 顆 + 無糖豆漿", mm:"~250 kcal · P22 C15 F10"},
+      {mt:"19:00 晚餐", mf:"鯛魚片或去皮雞腿 150g、烤南瓜、炒青菜", mm:"~840 kcal · P60 C80 F24"},
+    ]},
+    {label:"方案 C", items:[
+      {mt:"05:30 訓練前小點", mf:"蘋果 1 顆 + 黑咖啡", mm:"~110 kcal · P1 C25 F1"},
+      {mt:"06:00–06:50 訓練", mf:"重訓時段，訓練中補水就好", mm:"—"},
+      {mt:"07:00 訓練後早餐", mf:"燕麥 50g + 乳清蛋白 1 匙 + 花生醬 1 匙（用水或豆漿煮）", mm:"~500 kcal · P35 C60 F15"},
+      {mt:"12:00 午餐", mf:"雞胸肉或火雞肉 150g、藜麥飯 1 碗、烤時蔬", mm:"~630 kcal · P45 C75 F15"},
+      {mt:"15:30 下午點心", mf:"蛋白棒 1 條 + 香蕉 1 根", mm:"~330 kcal · P25 C40 F8"},
+      {mt:"19:00 晚餐", mf:"牛小排或豬里肌 150g、馬鈴薯 1 顆、炒時蔬", mm:"~830 kcal · P54 C70 F26"},
+    ]},
+  ],
+  rest: [
+    {label:"方案 A", items:[
+      {mt:"07:00 早餐", mf:"全蛋 1 顆 + 蛋白 1 杯炒蛋、燕麥 40g", mm:"~400 kcal · P35 C40 F12"},
+      {mt:"12:00 午餐", mf:"雞胸肉 150g、藜麥或糙米 1 碗、大量蔬菜、酪梨 1/4 顆", mm:"~550 kcal · P45 C45 F18"},
+      {mt:"跑步後點心", mf:"乳清蛋白 1 匙 + 莓果一把", mm:"~180 kcal · P25 C15 F2"},
+      {mt:"19:00 晚餐", mf:"白肉魚或雞胸 150g、地瓜 1 顆、炒青菜（少油）", mm:"~550 kcal · P40 C70 F10"},
+      {mt:"睡前點心", mf:"茅屋起司或優格 + 杏仁一小把", mm:"~370 kcal · P15 C20 F23"},
+    ]},
+    {label:"方案 B", items:[
+      {mt:"07:00 早餐", mf:"茶葉蛋 2 顆 + 無糖豆漿 500ml + 地瓜（小）", mm:"~370 kcal · P30 C40 F10"},
+      {mt:"12:00 午餐", mf:"鮭魚便當 150g、藜麥飯半碗、大量蔬菜", mm:"~500 kcal · P40 C40 F20"},
+      {mt:"跑步後點心", mf:"無糖優格 + 莓果", mm:"~190 kcal · P20 C20 F3"},
+      {mt:"19:00 晚餐", mf:"雞胸肉 150g、南瓜一份、炒青菜（少油）", mm:"~500 kcal · P45 C60 F10"},
+      {mt:"睡前點心", mf:"茅屋起司 + 杏仁一小把", mm:"~490 kcal · P25 C30 F22"},
+    ]},
+    {label:"方案 C", items:[
+      {mt:"07:00 早餐", mf:"蛋白鬆餅（蛋白粉 + 燕麥 + 蛋）+ 莓果", mm:"~370 kcal · P35 C35 F10"},
+      {mt:"12:00 午餐", mf:"牛肉沙拉（牛肉 100g + 生菜 + 藜麥 + 橄欖油）", mm:"~480 kcal · P40 C35 F20"},
+      {mt:"跑步後點心", mf:"乳清蛋白 1 匙 + 香蕉半根", mm:"~200 kcal · P25 C20 F2"},
+      {mt:"19:00 晚餐", mf:"鱈魚或白肉魚 150g、地瓜 1 顆、清炒時蔬", mm:"~500 kcal · P40 C70 F8"},
+      {mt:"睡前點心", mf:"希臘優格 + 堅果", mm:"~500 kcal · P20 C30 F25"},
+    ]},
+  ],
+};
+
+function renderMealGroup(tabsId, panelId, plans){
+  const tabsEl = document.getElementById(tabsId);
+  const panelEl = document.getElementById(panelId);
+  function renderPanel(i){
+    panelEl.innerHTML = plans[i].items.map(m=>`
+      <div class="meal-item">
+        <div class="mt">${m.mt}</div>
+        <div class="mf">${m.mf}</div>
+        <div class="mm">${m.mm}</div>
+      </div>`).join("");
+  }
+  plans.forEach((plan,i)=>{
+    const t = document.createElement("button");
+    t.className="tab"; t.textContent=plan.label; t.setAttribute("role","tab");
+    t.setAttribute("aria-selected", i===0?"true":"false");
+    t.onclick=()=>{
+      [...tabsEl.children].forEach((tt,j)=>tt.setAttribute("aria-selected", j===i?"true":"false"));
+      renderPanel(i);
+    };
+    tabsEl.appendChild(t);
+  });
+  renderPanel(0);
+}
+renderMealGroup("gymMealTabs","gymMealPanel",mealPlans.gym);
+renderMealGroup("restMealTabs","restMealPanel",mealPlans.rest);
 </script>
 </body>
 </html>
