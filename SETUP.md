@@ -43,7 +43,24 @@ Claude／Gemini App 目前沒有寫入你 Google Sheet 的權限，所以是「A
 
 **注意**：CSV 發布網址是公開的，任何人拿到網址都能看到裡面資料，不需要登入。如果想要不公開，需要改用需要驗證的 Google Sheets API，設定會更複雜，需要的話再跟我說。
 
-想手動補紀錄或修正估算值，也可以直接編輯 `data/meals.json`（方式 A 用這個）或 Google Sheet 本身（方式 B 用這個），格式參考 [data/README.md](data/README.md)。
+### 方式 C：網頁上的「新增一筆」表單，直接寫入 Google Sheet（免複製貼上）
+
+網頁已經有一個手動輸入表單（在「飲食紀錄」區塊最上面）。預設它只存在你這台裝置的瀏覽器裡，要貼去 Sheet 才會永久保存。如果想讓表單**按下去就直接寫進 Sheet**，需要幫 Sheet 部署一個 Google Apps Script Web App（不用另外的後端主機，完全在 Google 這邊跑）：
+
+1. 打開你的飲食 Google Sheet，選單 **擴充功能 → Apps Script**
+2. 把專案裡 `Code.gs` 的內容清空，貼上這個 repo 的 [google-apps-script/Code.gs](google-apps-script/Code.gs) 內容
+3. 存檔，接著點右上角 **部署 → New deployment**（新增部署作業）
+4. 類型選 **Web app**，設定：
+   - Execute as（執行身份）：**Me**（你自己）
+   - Who has access（誰可以存取）：**Anyone**（任何人）
+5. 按部署，第一次會跳出 Google 的授權畫面（因為是你自己寫的腳本，Google 會顯示「未經驗證」的警告），選 **Advanced／進階 → 前往...（不安全）** 繼續授權即可，這是正常的，因為腳本沒有送去 Google 審核，但只有你自己在用
+6. 部署完成後複製那組網址（結尾是 `/exec`）
+7. 打開 [index.html](index.html)，找到 `const MEALS_WRITE_URL = "";`，把網址貼進雙引號裡
+8. 之後在網頁表單按「加入」，就會直接送進 Google Sheet，不用再複製貼上
+
+設定好方式 C 之後，表單就不會再顯示 Tab 分隔的文字，而是直接顯示「已送出到 Google Sheet」。
+
+想手動補紀錄或修正估算值，也可以直接編輯 `data/meals.json`（方式 A 用這個）或 Google Sheet 本身（方式 B/C 用這個），格式參考 [data/README.md](data/README.md)。
 
 ## 本機測試注意事項
 

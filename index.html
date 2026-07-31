@@ -135,6 +135,21 @@
   .log-item .ldate{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted)}
   .log-item .ltitle{font-size:14px;margin-top:2px}
   .log-item .lmeta{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--faint);margin-top:3px}
+  .badge-local{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--gym);border:1px solid var(--gym);
+    border-radius:999px;padding:1px 6px;margin-left:6px}
+
+  /* meal entry form */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .form-grid .full{grid-column:1/-1}
+  .field{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted);
+    font-family:"JetBrains Mono",monospace;letter-spacing:.04em}
+  .field input{background:var(--surface2);border:1px solid var(--line);border-radius:8px;color:var(--text);
+    padding:9px 10px;font-family:"Inter",sans-serif;font-size:14px;width:100%}
+  .field input:focus-visible{outline:2px solid var(--gym);outline-offset:-1px}
+  .btn{background:var(--gym);color:#0F1519;border:none;border-radius:8px;padding:9px 16px;
+    font-family:"Space Grotesk",sans-serif;font-weight:600;font-size:14px;cursor:pointer}
+  .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+  .btn:focus-visible,.btn-ghost:focus-visible{outline:2px solid var(--gym);outline-offset:2px}
 
   footer{padding:24px 0 8px;color:var(--faint);font-size:12px;font-family:"JetBrains Mono",monospace;line-height:1.7}
   footer b{color:var(--gym)}
@@ -245,6 +260,32 @@
 
   <section>
     <div class="kicker">飲食紀錄 · 拍照 + AI 估算</div>
+
+    <div class="card" style="margin-bottom:14px">
+      <h3>新增一筆</h3>
+      <div class="form-grid" style="margin-top:10px">
+        <label class="field"><span>日期</span><input type="date" id="mfDate"></label>
+        <label class="field"><span>時間</span><input type="time" id="mfTime"></label>
+        <label class="field full"><span>食物描述</span><input type="text" id="mfDesc" placeholder="例如：雞胸肉 150g、糙米飯 1 碗"></label>
+        <label class="field"><span>熱量 kcal</span><input type="number" id="mfCal" min="0" inputmode="numeric"></label>
+        <label class="field"><span>蛋白質 g</span><input type="number" id="mfProtein" min="0" inputmode="numeric"></label>
+        <label class="field"><span>碳水 g</span><input type="number" id="mfCarbs" min="0" inputmode="numeric"></label>
+        <label class="field"><span>脂肪 g</span><input type="number" id="mfFat" min="0" inputmode="numeric"></label>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+        <button class="btn" id="mfAdd">加入本機紀錄</button>
+        <button class="btn-ghost" id="mfClearLocal" style="border-radius:8px;padding:9px 16px;cursor:pointer">清除本機暫存</button>
+      </div>
+      <div id="mfCopyRow" hidden style="margin-top:14px">
+        <div class="field"><span>貼到 Google Sheet 用（Tab 分隔，貼上新一列第一格會自動分欄）</span></div>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <input type="text" id="mfCopyText" readonly style="flex:1;background:var(--surface2);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font-family:'JetBrains Mono',monospace;font-size:12px">
+          <button class="btn" id="mfCopyBtn">複製</button>
+        </div>
+      </div>
+      <p class="muted" id="mfStatus" style="margin-top:12px"></p>
+    </div>
+
     <div id="mealLog"><p class="muted">載入中…</p></div>
   </section>
 
@@ -450,6 +491,11 @@ renderMealGroup("restMealTabs","restMealPanel",mealPlans.rest);
 // keep using data/meals.json instead.
 const MEALS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSlovf9XnC1NIP8d5Q0g77Kg8Izt8iZXo-idVkF9OxrdnR9K9Q246TZGPRj90hxGCNqrefF7CGBYf6H/pub?output=csv";
 
+// Apps Script Web App /exec URL that appends a row to the same Sheet.
+// Leave blank to fall back to the copy/paste (Tab-separated) flow instead.
+// See google-apps-script/Code.gs and SETUP.md for how to set this up.
+const MEALS_WRITE_URL = "";
+
 function todayStr(){
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -507,10 +553,23 @@ function loadMeals(){
   return fetch("data/meals.json").then(r=>r.ok?r.json():[]).catch(()=>[]);
 }
 
-Promise.all([
-  fetch("data/workouts.json").then(r=>r.ok?r.json():[]).catch(()=>[]),
-  loadMeals(),
-]).then(([workouts, meals])=>{
+// meals you add via the on-page form, kept in this browser only until you paste them into the Sheet
+function getLocalMeals(){
+  try { return JSON.parse(localStorage.getItem("localMeals") || "[]"); } catch(e){ return []; }
+}
+function setLocalMeals(list){
+  localStorage.setItem("localMeals", JSON.stringify(list));
+}
+
+let cachedWorkouts = [];
+let cachedRemoteMeals = [];
+
+function renderAll(){
+  const workouts = cachedWorkouts;
+  // once a local entry shows up in the Sheet (same date+time+description), stop showing the local copy
+  const remoteKeys = new Set(cachedRemoteMeals.map(m=>`${m.date}|${m.time}|${m.description}`));
+  const localMeals = getLocalMeals().filter(m=>!remoteKeys.has(`${m.date}|${m.time}|${m.description}`));
+  const meals = [...cachedRemoteMeals, ...localMeals];
 
   // today progress
   const day = todayDayConfig();
@@ -555,19 +614,106 @@ Promise.all([
   // meal log (most recent 14)
   const mealEl = document.getElementById("mealLog");
   if(!meals.length){
-    mealEl.innerHTML = `<div class="card"><p class="muted">還沒有飲食紀錄。把食物照片傳給 Claude,由它幫你估算並寫進紀錄。</p></div>`;
+    mealEl.innerHTML = `<div class="card"><p class="muted">還沒有飲食紀錄。用上面的表單新增一筆，或把食物照片傳給 Claude 幫你估算。</p></div>`;
   } else {
     const rows = [...meals].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)).slice(0,14);
     mealEl.innerHTML = rows.map(m=>`
       <div class="log-item">
         <div class="lbody">
-          <div class="ldate">${fmtDate(m.date)} ${m.time||""}</div>
+          <div class="ldate">${fmtDate(m.date)} ${m.time||""}${m.source==="local"?`<span class="badge-local">待同步</span>`:``}</div>
           <div class="ltitle">${m.description||""}</div>
           <div class="lmeta">${m.calories||0} kcal · P${m.protein||0} C${m.carbs||0} F${m.fat||0}</div>
         </div>
       </div>`).join("");
   }
+}
+
+Promise.all([
+  fetch("data/workouts.json").then(r=>r.ok?r.json():[]).catch(()=>[]),
+  loadMeals(),
+]).then(([workouts, meals])=>{
+  cachedWorkouts = workouts;
+  cachedRemoteMeals = meals;
+  renderAll();
 });
+
+// ---- add-meal form ----
+function pad2(n){ return String(n).padStart(2,"0"); }
+function nowDateStr(){ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+function nowTimeStr(){ const d=new Date(); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
+
+const mfDate = document.getElementById("mfDate");
+const mfTime = document.getElementById("mfTime");
+mfDate.value = nowDateStr();
+mfTime.value = nowTimeStr();
+
+document.getElementById("mfAdd").onclick = () => {
+  const desc = document.getElementById("mfDesc").value.trim();
+  if(!desc){ alert("請填食物描述"); return; }
+
+  const entry = {
+    date: mfDate.value || nowDateStr(),
+    time: mfTime.value || nowTimeStr(),
+    description: desc,
+    calories: Number(document.getElementById("mfCal").value) || 0,
+    protein: Number(document.getElementById("mfProtein").value) || 0,
+    carbs: Number(document.getElementById("mfCarbs").value) || 0,
+    fat: Number(document.getElementById("mfFat").value) || 0,
+    source: "local",
+  };
+
+  const list = getLocalMeals();
+  list.push(entry);
+  setLocalMeals(list);
+
+  const statusEl = document.getElementById("mfStatus");
+  const copyRow = document.getElementById("mfCopyRow");
+
+  if(MEALS_WRITE_URL){
+    copyRow.hidden = true;
+    statusEl.textContent = "已送出到 Google Sheet…";
+    fetch(MEALS_WRITE_URL, {
+      method: "POST",
+      mode: "no-cors", // Apps Script web apps don't return CORS headers; response is opaque but the write still executes
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify(entry),
+    })
+      .then(() => { statusEl.textContent = "已送出到 Google Sheet，重新整理頁面後就會出現在紀錄裡。"; })
+      .catch(() => { statusEl.textContent = "送出失敗，請檢查網路連線或 MEALS_WRITE_URL 設定，這筆先留在本機。"; });
+  } else {
+    const tsv = [entry.date, entry.time, entry.description, entry.calories, entry.protein, entry.carbs, entry.fat].join("\t");
+    document.getElementById("mfCopyText").value = tsv;
+    copyRow.hidden = false;
+    statusEl.textContent = "這筆先存在這台裝置的瀏覽器裡，記得把上面那行文字貼進 Google Sheet 存起來。";
+  }
+
+  document.getElementById("mfDesc").value = "";
+  document.getElementById("mfCal").value = "";
+  document.getElementById("mfProtein").value = "";
+  document.getElementById("mfCarbs").value = "";
+  document.getElementById("mfFat").value = "";
+
+  renderAll();
+};
+
+document.getElementById("mfCopyBtn").onclick = () => {
+  const copyText = document.getElementById("mfCopyText");
+  copyText.select();
+  const btn = document.getElementById("mfCopyBtn");
+  (navigator.clipboard ? navigator.clipboard.writeText(copyText.value) : Promise.reject())
+    .catch(() => document.execCommand("copy"))
+    .finally(() => {
+      btn.textContent = "已複製";
+      setTimeout(() => { btn.textContent = "複製"; }, 1500);
+    });
+};
+
+document.getElementById("mfClearLocal").onclick = () => {
+  if(confirm("確定要清除本機暫存的飲食紀錄嗎？（貼到 Google Sheet 後可以清掉，避免重複顯示）")){
+    setLocalMeals([]);
+    renderAll();
+  }
+};
 </script>
 </body>
 </html>
