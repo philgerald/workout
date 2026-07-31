@@ -298,12 +298,6 @@
     <div id="mealLog"><p class="muted">載入中…</p></div>
   </section>
 
-  <footer>
-    <div>// 進步核心：同一動作 <b>每週重量或次數多一點點</b>（漸進超負荷）</div>
-    <div>// 上次總量 4,289 kg — 目標讓這個數字慢慢往上</div>
-    <div>// 前 2 週留 RIR 2–3，第 3 週起最後一組推到 RIR 1–2</div>
-  </footer>
-
 </div>
 
 <script>
@@ -628,7 +622,10 @@ function normalizeTime(v){
 
 function loadMeals(){
   if(MEALS_CSV_URL){
-    return fetch(MEALS_CSV_URL).then(r=>r.ok?r.text():"").then(parseCSV).catch(()=>[]);
+    // Google's "publish to web" CSV export is cached for a few minutes; a cache-busting
+    // query param + no-store keeps us from re-reading stale data right after a new row is added.
+    const bustedUrl = MEALS_CSV_URL + (MEALS_CSV_URL.includes("?") ? "&" : "?") + "_=" + Date.now();
+    return fetch(bustedUrl, { cache: "no-store" }).then(r=>r.ok?r.text():"").then(parseCSV).catch(()=>[]);
   }
   return fetch("data/meals.json").then(r=>r.ok?r.json():[]).catch(()=>[]);
 }
