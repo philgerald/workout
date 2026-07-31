@@ -288,9 +288,11 @@
 
     <div class="card" style="margin-bottom:14px">
       <h3>拍照自動估算</h3>
-      <p class="muted" style="margin-top:6px">手機把食物照片存到你設定的 Google Drive 收件匣資料夾，再回來按這顆按鈕，會用 Gemini 自動分析並寫進 Sheet。</p>
-      <div style="margin-top:12px">
-        <button class="btn" id="mfParseInbox">解析 Google Drive 收件匣</button>
+      <p class="muted" style="margin-top:6px">直接在網頁選照片，會自動上傳到你的 Google Drive 收件匣資料夾，再用 Gemini 分析寫進 Sheet。</p>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <label class="btn" for="mfPhotoInput" style="display:inline-flex;align-items:center;cursor:pointer">拍照 / 選擇照片上傳</label>
+        <input type="file" id="mfPhotoInput" accept="image/*" capture="environment" hidden>
+        <button class="btn-ghost" id="mfParseInbox" style="border-radius:8px;padding:9px 16px;cursor:pointer">改解析 Drive 裡既有照片</button>
       </div>
       <p class="muted" id="mfParseStatus" style="margin-top:12px"></p>
     </div>
@@ -725,29 +727,101 @@ document.getElementById("mfClearLocal").onclick = () => {
 };
 
 // ---- parse Google Drive inbox via Apps Script (Gemini runs server-side, key never touches the browser) ----
+function triggerParseInbox(statusEl, prefix){
+  statusEl.textContent = prefix + "分析中…（張數多的話可能要等一下）";
+  return fetch(`${MEALS_WRITE_URL}?action=parseInbox`)
+    .then(r=>r.json())
+    .then(res=>{
+      if(!res.ok){
+        statusEl.textContent = prefix + "失敗：" + (res.error || "未知錯誤");
+        return;
+      }
+      const n = (res.processed||[]).length;
+      const failN = (res.failed||[]).length;
+      statusEl.textContent = prefix + (n
+        ? `完成，已新增 ${n} 筆到 Google Sheet${failN?`，${failN} 筆失敗`:""}，重新整理頁面就會看到。`
+        : (failN ? `${failN} 筆分析失敗，檢查收件匣照片或 Script Properties 設定。` : "收件匣裡沒有新照片。"));
+      renderAll();
+    })
+    .catch(()=>{
+      statusEl.textContent = prefix + "呼叫失敗（可能是網路或 CORS 問題）。如果 Sheet 裡其實已經寫入了，忽略這則訊息即可，重新整理頁面確認。";
+    });
+}
+
 document.getElementById("mfParseInbox").onclick = () => {
   const statusEl = document.getElementById("mfParseStatus");
   if(!MEALS_WRITE_URL){
     statusEl.textContent = "還沒設定 MEALS_WRITE_URL，無法呼叫 Apps Script。";
     return;
   }
-  statusEl.textContent = "分析中…（張數多的話可能要等一下）";
-  fetch(`${MEALS_WRITE_URL}?action=parseInbox`)
-    .then(r=>r.json())
-    .then(res=>{
-      if(!res.ok){
-        statusEl.textContent = "失敗：" + (res.error || "未知錯誤");
-        return;
+  triggerParseInbox(statusEl, "");
+};
+
+// downscale + re-encode as JPEG in the browser before upload (keeps requests small/fast)
+function resizeImageFile(file, maxDim=1280, quality=0.8){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if(width > maxDim || height > maxDim){
+        const scale = maxDim / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
       }
-      const n = (res.processed||[]).length;
-      const failN = (res.failed||[]).length;
-      statusEl.textContent = n
-        ? `完成，已新增 ${n} 筆到 Google Sheet${failN?`，${failN} 筆失敗`:""}，重新整理頁面就會看到。`
-        : (failN ? `${failN} 筆分析失敗，檢查收件匣照片或 Script Properties 設定。` : "收件匣裡沒有新照片。");
-    })
-    .catch(()=>{
-      statusEl.textContent = "呼叫失敗（可能是網路或 CORS 問題）。如果 Sheet 裡其實已經寫入了，忽略這則訊息即可，重新整理頁面確認。";
-    });
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(blob => {
+        if(!blob){ reject(new Error("圖片轉換失敗")); return; }
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      }, "image/jpeg", quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("圖片讀取失敗")); };
+    img.src = url;
+  });
+}
+
+document.getElementById("mfPhotoInput").onchange = async (ev) => {
+  const file = ev.target.files[0];
+  ev.target.value = ""; // allow picking the same file again later
+  if(!file) return;
+
+  const statusEl = document.getElementById("mfParseStatus");
+  if(!MEALS_WRITE_URL){
+    statusEl.textContent = "還沒設定 MEALS_WRITE_URL，無法上傳。";
+    return;
+  }
+
+  try {
+    statusEl.textContent = "處理照片中…";
+    const base64 = await resizeImageFile(file);
+
+    statusEl.textContent = "上傳到 Google Drive 中…";
+    const uploadRes = await fetch(MEALS_WRITE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({
+        action: "uploadPhoto",
+        filename: `meal-${Date.now()}.jpg`,
+        mimeType: "image/jpeg",
+        data: base64,
+      }),
+    }).then(r=>r.json());
+
+    if(!uploadRes.ok){
+      statusEl.textContent = "上傳失敗：" + (uploadRes.error || "未知錯誤");
+      return;
+    }
+
+    await triggerParseInbox(statusEl, "上傳完成，");
+  } catch(err){
+    statusEl.textContent = "發生錯誤：" + err.message;
+  }
 };
 </script>
 </body>

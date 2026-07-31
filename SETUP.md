@@ -66,14 +66,21 @@ Claude／Gemini App 目前沒有寫入你 Google Sheet 的權限，所以是「A
 
 1. 去 [aistudio.google.com/apikey](https://aistudio.google.com/apikey) 申請一組 Gemini API key
 2. 在 Google Drive 建一個資料夾（例如取名「meals-inbox」），專門放要分析的食物照片。打開這個資料夾，網址列 `folders/` 後面那串英數字就是資料夾 ID，複製起來
-3. 回到你的 Apps Script 專案（跟方式 C 同一個），把 `google-apps-script/Code.gs` 最新版內容整個覆蓋貼上去（比方式 C 當初貼的版本多了 `doGet`、Drive 掃描和 Gemini 呼叫的程式碼）
+3. 回到你的 Apps Script 專案（跟方式 C 同一個），把 `google-apps-script/Code.gs` 最新版內容整個覆蓋貼上去（比方式 C 當初貼的版本多了 `doGet`、上傳照片、Drive 掃描和 Gemini 呼叫的程式碼）
 4. 左側選單點 **專案設定**（齒輪圖示）→ 往下捲到 **指令碼屬性**，新增兩筆：
    - `GEMINI_API_KEY` — 你的 Gemini API key
    - `MEALS_INBOX_FOLDER_ID` — 剛剛複製的 Drive 資料夾 ID
 5. 回到編輯器，**部署 → 管理部署作業**，點現有部署旁邊的鉛筆（編輯），版本選 **新版本**，再按部署——這樣網址（`/exec`）維持不變，但會套用新程式碼
-6. 打開網頁「飲食紀錄」區塊，會看到「拍照自動估算」卡片和一個「解析 Google Drive 收件匣」按鈕
+6. 打開網頁「飲食紀錄」區塊，會看到「拍照自動估算」卡片
 
-之後流程：手機用 Google Drive App 把食物照片存進 `meals-inbox` 資料夾 → 打開網頁按「解析 Google Drive 收件匣」→ Apps Script 在背景讀取資料夾裡的照片、逐張呼叫 Gemini 估算、寫進 Sheet、刪掉已處理的照片 → 按鈕下方會顯示處理了幾筆 → 重新整理頁面就看得到。
+之後流程（全部在網頁上完成，不用另外開 Google Drive App）：
+
+1. 手機打開網頁，按「**拍照 / 選擇照片上傳**」，選一張食物照片（或直接拍照）
+2. 網頁會先在瀏覽器裡把照片縮小、轉成 JPEG，再上傳到你的 Drive 收件匣資料夾
+3. 上傳完自動接著呼叫 Gemini 分析、寫進 Sheet、刪掉已處理的照片
+4. 狀態文字會顯示進度，完成後重新整理頁面就看得到新紀錄
+
+如果照片是用別的方式（例如 Google Drive App）另外存進收件匣資料夾的，可以按旁邊的「**改解析 Drive 裡既有照片**」按鈕，只做分析不做上傳。
 
 想手動補紀錄或修正估算值，也可以直接編輯 `data/meals.json`（方式 A 用這個）或 Google Sheet 本身（方式 B/C/D 用這個），格式參考 [data/README.md](data/README.md)。
 

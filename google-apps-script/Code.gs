@@ -3,11 +3,14 @@
 // See SETUP.md for the full deployment steps, including the two Script
 // Properties this needs: GEMINI_API_KEY and MEALS_INBOX_FOLDER_ID.
 
-// ---- used by the on-page "新增一筆" form: append one row directly ----
+// ---- used by the on-page "新增一筆" form / photo upload ----
 function doPost(e) {
   var body = JSON.parse(e.postData.contents);
   if (body.action === "parseInbox") {
     return parseInboxAndRespond();
+  }
+  if (body.action === "uploadPhoto") {
+    return uploadPhotoAndRespond(body);
   }
   appendMealRow(body);
   return jsonResponse({ ok: true });
@@ -35,6 +38,27 @@ function appendMealRow(data) {
     data.carbs || 0,
     data.fat || 0,
   ]);
+}
+
+// saves a base64-encoded photo (sent from the on-page uploader) into the Drive inbox folder
+function uploadPhotoAndRespond(body) {
+  var props = PropertiesService.getScriptProperties();
+  var folderId = props.getProperty("MEALS_INBOX_FOLDER_ID");
+  if (!folderId) {
+    return jsonResponse({ ok: false, error: "缺少 Script Properties：MEALS_INBOX_FOLDER_ID，請到專案設定裡新增。" });
+  }
+  if (!body.data) {
+    return jsonResponse({ ok: false, error: "沒有收到照片資料。" });
+  }
+
+  var mimeType = body.mimeType || "image/jpeg";
+  var filename = body.filename || ("meal-" + new Date().getTime() + ".jpg");
+  var bytes = Utilities.base64Decode(body.data);
+  var blob = Utilities.newBlob(bytes, mimeType, filename);
+
+  DriveApp.getFolderById(folderId).createFile(blob);
+
+  return jsonResponse({ ok: true, filename: filename });
 }
 
 // scans the Drive inbox folder for photos, estimates each with Gemini,
