@@ -131,14 +131,52 @@ function estimateWithGemini(apiKey, blob) {
     }
   );
 
-  var json = JSON.parse(resp.getContentText());
+  var raw = resp.getContentText();
+
+  if (resp.getResponseCode() !== 200) {
+    var errMsg = raw;
+    try { errMsg = JSON.parse(raw).error.message; } catch (e) {}
+    throw new Error("Gemini API 回傳 HTTP " + resp.getResponseCode() + "：" + errMsg);
+  }
+
+  var json = JSON.parse(raw);
   if (!json.candidates || !json.candidates.length) {
-    throw new Error("Gemini 沒有回傳結果：" + resp.getContentText());
+    throw new Error("Gemini 沒有回傳結果：" + raw.slice(0, 300));
   }
 
   var text = json.candidates[0].content.parts[0].text.trim();
   text = text.replace(/^```[a-z]*\n?/i, "").replace(/```$/, "").trim();
-  return JSON.parse(text);
+
+  // if the model wrapped the JSON in prose, pull out the first {...} block
+  var parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (e) {
+    var block = text.match(/\{[\s\S]*\}/);
+    if (!block) throw new Error("無法解析 Gemini 回覆：" + text.slice(0, 300));
+    parsed = JSON.parse(block[0]);
+  }
+
+  // the model sometimes answers with "650 kcal" / "45g" instead of a plain number
+  function num(v) {
+    if (typeof v === "number") return v;
+    var m = String(v == null ? "" : v).replace(/,/g, "").match(/-?\d+(\.\d+)?/);
+    return m ? Number(m[0]) : 0;
+  }
+
+  var out = {
+    description: parsed.description || "",
+    calories: num(parsed.calories),
+    protein: num(parsed.protein),
+    carbs: num(parsed.carbs),
+    fat: num(parsed.fat),
+  };
+
+  if (!out.calories && !out.protein && !out.carbs && !out.fat) {
+    throw new Error("Gemini 估算結果全為 0，原始回覆：" + text.slice(0, 300));
+  }
+
+  return out;
 }
 
 function jsonResponse(obj) {
