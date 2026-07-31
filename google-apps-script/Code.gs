@@ -121,8 +121,10 @@ function estimateWithGemini(apiKey, blob) {
     }],
   };
 
+  var model = PropertiesService.getScriptProperties().getProperty("GEMINI_MODEL") || "gemini-3-flash-preview";
+
   var resp = UrlFetchApp.fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey,
+    "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey,
     {
       method: "post",
       contentType: "application/json",

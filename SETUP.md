@@ -70,6 +70,7 @@ Claude／Gemini App 目前沒有寫入你 Google Sheet 的權限，所以是「A
 4. 左側選單點 **專案設定**（齒輪圖示）→ 往下捲到 **指令碼屬性**，新增兩筆：
    - `GEMINI_API_KEY` — 你的 Gemini API key
    - `MEALS_INBOX_FOLDER_ID` — 剛剛複製的 Drive 資料夾 ID
+   - `GEMINI_MODEL`（選填）— 要呼叫的模型名稱，預設 `gemini-3-flash-preview`。之後 Google 停用這個模型時，不用改程式碼，直接加這筆屬性換成新的模型名稱即可（可以到 [aistudio.google.com](https://aistudio.google.com) 選好模型後按「Get code」查看目前可用的模型名稱）
 5. 回到編輯器，**部署 → 管理部署作業**，點現有部署旁邊的鉛筆（編輯），版本選 **新版本**，再按部署——這樣網址（`/exec`）維持不變，但會套用新程式碼
 6. 打開網頁「飲食紀錄」區塊，會看到「拍照自動估算」卡片
 
