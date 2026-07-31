@@ -443,7 +443,13 @@ function renderMealGroup(tabsId, panelId, plans){
 renderMealGroup("gymMealTabs","gymMealPanel",mealPlans.gym);
 renderMealGroup("restMealTabs","restMealPanel",mealPlans.rest);
 
-// ---- real logs: Garmin workouts + AI meal photos, read from data/*.json ----
+// ---- real logs: Garmin workouts (data/workouts.json) + meals (Google Sheet or data/meals.json) ----
+
+// Fill this in once you've published your meals Google Sheet to the web as CSV
+// (File → Share → Publish to web → select the sheet → CSV). Leave blank to
+// keep using data/meals.json instead.
+const MEALS_CSV_URL = "";
+
 function todayStr(){
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -457,9 +463,53 @@ function fmtDate(iso){
   return `${d.getMonth()+1}/${d.getDate()}`;
 }
 
+// minimal CSV parser — handles quoted fields with commas/newlines
+function parseCSV(text){
+  const rows = []; let row = []; let field = ""; let inQuotes = false;
+  for(let i=0;i<text.length;i++){
+    const c = text[i];
+    if(inQuotes){
+      if(c === '"'){
+        if(text[i+1] === '"'){ field += '"'; i++; } else { inQuotes = false; }
+      } else field += c;
+    } else {
+      if(c === '"') inQuotes = true;
+      else if(c === ","){ row.push(field); field = ""; }
+      else if(c === "\n" || c === "\r"){
+        if(c === "\r" && text[i+1] === "\n") i++;
+        row.push(field); field = ""; rows.push(row); row = [];
+      } else field += c;
+    }
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  if(!rows.length) return [];
+  const headers = rows[0].map(h=>h.trim().toLowerCase());
+  return rows.slice(1).filter(r=>r.some(v=>v.trim()!=="")).map(r=>{
+    const obj = {};
+    headers.forEach((h,i)=>obj[h]=(r[i]||"").trim());
+    return {
+      date: obj.date,
+      time: obj.time,
+      description: obj.description,
+      calories: Number(obj.calories)||0,
+      protein: Number(obj.protein)||0,
+      carbs: Number(obj.carbs)||0,
+      fat: Number(obj.fat)||0,
+      source: obj.source || "sheet",
+    };
+  });
+}
+
+function loadMeals(){
+  if(MEALS_CSV_URL){
+    return fetch(MEALS_CSV_URL).then(r=>r.ok?r.text():"").then(parseCSV).catch(()=>[]);
+  }
+  return fetch("data/meals.json").then(r=>r.ok?r.json():[]).catch(()=>[]);
+}
+
 Promise.all([
   fetch("data/workouts.json").then(r=>r.ok?r.json():[]).catch(()=>[]),
-  fetch("data/meals.json").then(r=>r.ok?r.json():[]).catch(()=>[]),
+  loadMeals(),
 ]).then(([workouts, meals])=>{
 
   // today progress
