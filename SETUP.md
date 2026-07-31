@@ -1,14 +1,12 @@
 # 自動記錄設定
 
-網頁現在會讀 `data/workouts.json`（Garmin 訓練）和 `data/meals.json`（飲食）並顯示在「今日進度」「訓練紀錄」「飲食紀錄」三個區塊。這兩個檔案由下面兩個 GitHub Actions 自動更新，需要先在 repo 設定 Secrets 才會動。
-
-設定路徑：repo → **Settings → Secrets and variables → Actions → New repository secret**
+網頁會讀 `data/workouts.json`（Garmin 訓練）和 `data/meals.json`（飲食）並顯示在「今日進度」「訓練紀錄」「飲食紀錄」三個區塊。
 
 ## 1. 訓練紀錄（Garmin 自動同步）
 
 用 `.github/workflows/garmin-sync.yml`，每天 07:00（台灣時間）自動抓取 Garmin Connect 的活動寫入 `data/workouts.json`。
 
-需要新增這兩個 Secret：
+設定路徑：repo → **Settings → Secrets and variables → Actions → New repository secret**，新增：
 - `GARMIN_EMAIL` — Garmin 帳號 email
 - `GARMIN_PASSWORD` — Garmin 帳號密碼
 
@@ -17,21 +15,16 @@
 - Garmin 網站改版時這個套件可能會暫時失效，需要等套件更新。
 - 想手動測試，可以到 repo 的 **Actions → Garmin Sync → Run workflow** 手動觸發一次，不用等排程。
 
-## 2. 飲食紀錄（拍照 + AI 估算）
+## 2. 飲食紀錄（直接在對話裡傳照片給 Claude）
 
-用 `.github/workflows/meal-photo.yml`，只要有新照片被推進 `meals/inbox/` 資料夾，就會自動用 Claude 估算食物內容和 macros，寫入 `data/meals.json`，照片搬到 `meals/photos/`。
+不用另外申請 API key、也沒有自動化 workflow。流程是：
 
-需要新增這個 Secret：
-- `ANTHROPIC_API_KEY` — 你的 Anthropic API key（[console.anthropic.com](https://console.anthropic.com) 申請，用量計費）
+1. 把食物照片傳到跟 Claude 的對話裡
+2. Claude 直接看圖估算食物內容、熱量、蛋白質/碳水/脂肪
+3. Claude 把這筆記錄加進 `data/meals.json`（不存照片檔，只留文字描述），commit 並 push
+4. 重新整理網頁，「飲食紀錄」和「今日進度」就會更新
 
-### 怎麼把照片丟進 inbox
-
-最簡單的方式是用手機的 GitHub app，或直接用瀏覽器：
-1. 打開 repo 的 `meals/inbox/` 資料夾
-2. 點 **Add file → Upload files**，把剛拍的食物照片上傳、Commit
-3. 幾十秒後 Action 就會跑完，AI 估算結果會出現在 `data/meals.json`，網頁重新整理就看得到
-
-之後想更方便，也可以裝 GitHub 的手機 App，直接對著 repo 資料夾用「上傳檔案」，等於一個簡易的拍照上傳流程。
+想手動補紀錄或修正估算值，也可以直接編輯 `data/meals.json`（格式參考 [data/README.md](data/README.md)）。
 
 ## 本機測試注意事項
 

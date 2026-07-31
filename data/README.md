@@ -22,7 +22,7 @@
 
 ## meals.json
 
-由 `.github/workflows/meal-photo.yml` 在 `meals/inbox/` 有新照片時自動用 AI 估算並寫入，也可以手動編輯。
+在對話裡把食物照片傳給 Claude，由 Claude 直接看圖估算並寫入這個檔案（不存照片檔，只留文字描述），也可以手動編輯。
 
 ```json
 [
@@ -30,7 +30,6 @@
     "id": "meal-20260731-0700",
     "date": "2026-07-31",
     "time": "07:00",
-    "photo": "meals/photos/20260731-0700.jpg",
     "description": "水煮蛋 2 顆、全麥吐司 2 片、乳清豆漿",
     "calories": 500,
     "protein": 35,

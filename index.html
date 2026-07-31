@@ -505,12 +505,11 @@ Promise.all([
   // meal log (most recent 14)
   const mealEl = document.getElementById("mealLog");
   if(!meals.length){
-    mealEl.innerHTML = `<div class="card"><p class="muted">還沒有飲食紀錄。把照片丟進 <b>meals/inbox/</b> 資料夾後，AI 會自動估算並顯示在這裡。</p></div>`;
+    mealEl.innerHTML = `<div class="card"><p class="muted">還沒有飲食紀錄。把食物照片傳給 Claude,由它幫你估算並寫進紀錄。</p></div>`;
   } else {
     const rows = [...meals].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)).slice(0,14);
     mealEl.innerHTML = rows.map(m=>`
       <div class="log-item">
-        ${m.photo?`<img src="${m.photo}" alt="">`:``}
         <div class="lbody">
           <div class="ldate">${fmtDate(m.date)} ${m.time||""}</div>
           <div class="ltitle">${m.description||""}</div>
