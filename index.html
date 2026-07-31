@@ -718,24 +718,24 @@ document.getElementById("mfCopyBtn").onclick = () => {
 };
 
 // ---- parse Google Drive inbox via Apps Script (Gemini runs server-side, key never touches the browser) ----
+// Uses mode:"no-cors" like the manual-entry write: some mobile browsers (Safari/iOS WebKit)
+// fail to read the response across Apps Script's redirect chain ("Load failed"), so we fire
+// the request, then re-fetch the Sheet after a delay instead of trying to read a JSON reply.
 function triggerParseInbox(statusEl, prefix){
-  statusEl.textContent = prefix + "分析中…（張數多的話可能要等一下）";
-  return fetch(`${MEALS_WRITE_URL}?action=parseInbox`)
-    .then(r=>r.json())
-    .then(res=>{
-      if(!res.ok){
-        statusEl.textContent = prefix + "失敗：" + (res.error || "未知錯誤");
-        return;
-      }
-      const n = (res.processed||[]).length;
-      const failN = (res.failed||[]).length;
-      statusEl.textContent = prefix + (n
-        ? `完成，已新增 ${n} 筆到 Google Sheet${failN?`，${failN} 筆失敗`:""}，重新整理頁面就會看到。`
-        : (failN ? `${failN} 筆分析失敗，檢查收件匣照片或 Script Properties 設定。` : "收件匣裡沒有新照片。"));
+  statusEl.textContent = prefix + "已送出分析請求…（Gemini 分析需要幾秒到十幾秒）";
+  return fetch(`${MEALS_WRITE_URL}?action=parseInbox`, { mode: "no-cors" })
+    .then(() => {
+      statusEl.textContent = prefix + "處理中，8 秒後自動確認 Sheet 最新內容…";
+      return new Promise(resolve => setTimeout(resolve, 8000));
+    })
+    .then(() => loadMeals())
+    .then(meals => {
+      cachedRemoteMeals = meals;
       renderAll();
+      statusEl.textContent = prefix + "已確認 Sheet 最新內容，飲食紀錄清單已更新。如果沒看到新紀錄，可能還在處理中，稍後可以再按一次。";
     })
     .catch(()=>{
-      statusEl.textContent = prefix + "呼叫失敗（可能是網路或 CORS 問題）。如果 Sheet 裡其實已經寫入了，忽略這則訊息即可，重新整理頁面確認。";
+      statusEl.textContent = prefix + "呼叫失敗，請檢查網路連線後再試一次。";
     });
 }
 
@@ -784,8 +784,9 @@ document.getElementById("mfPhotoInput").onchange = async (ev) => {
     const base64 = await resizeImageFile(file);
 
     statusEl.textContent = "上傳到 Google Drive 中…";
-    const uploadRes = await fetch(MEALS_WRITE_URL, {
+    await fetch(MEALS_WRITE_URL, {
       method: "POST",
+      mode: "no-cors", // avoid relying on cross-origin response reads, which fail on some mobile browsers
       headers: { "Content-Type": "text/plain" },
       body: JSON.stringify({
         action: "uploadPhoto",
@@ -793,12 +794,7 @@ document.getElementById("mfPhotoInput").onchange = async (ev) => {
         mimeType: "image/jpeg",
         data: base64,
       }),
-    }).then(r=>r.json());
-
-    if(!uploadRes.ok){
-      statusEl.textContent = "上傳失敗：" + (uploadRes.error || "未知錯誤");
-      return;
-    }
+    });
 
     await triggerParseInbox(statusEl, "上傳完成，");
   } catch(err){
