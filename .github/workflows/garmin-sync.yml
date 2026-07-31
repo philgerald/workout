@@ -2,7 +2,8 @@ name: Garmin Sync
 
 on:
   schedule:
-    - cron: "0 23 * * *" # ~07:00 Asia/Taipei
+    - cron: "30 23 * * *" # ~07:30 Asia/Taipei
+    - cron: "0 13 * * *"  # ~21:00 Asia/Taipei
   workflow_dispatch: {}
 
 jobs:
@@ -11,9 +12,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 

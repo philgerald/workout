@@ -4,7 +4,9 @@
 
 ## 1. 訓練紀錄（Garmin 自動同步）
 
-用 `.github/workflows/garmin-sync.yml`，每天 07:00（台灣時間）自動抓取 Garmin Connect 的活動寫入 `data/workouts.json`。
+用 `.github/workflows/garmin-sync.yml`，每天 **07:30 和 21:00**（台灣時間）自動抓取 Garmin Connect 的活動寫入 `data/workouts.json`。
+
+（GitHub Actions 排程時間可能會延遲個幾分鐘才觸發，屬正常現象。）
 
 設定路徑：repo → **Settings → Secrets and variables → Actions → New repository secret**，新增：
 - `GARMIN_EMAIL` — Garmin 帳號 email
