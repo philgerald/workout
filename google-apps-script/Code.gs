@@ -1,11 +1,31 @@
 // Paste this into Extensions → Apps Script on your meals Google Sheet,
 // then deploy it as a Web App (Execute as: Me, Who has access: Anyone).
-// See SETUP.md for the full deployment steps.
+// See SETUP.md for the full deployment steps, including the two Script
+// Properties this needs: GEMINI_API_KEY and MEALS_INBOX_FOLDER_ID.
 
+// ---- used by the on-page "新增一筆" form: append one row directly ----
 function doPost(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
-  var data = JSON.parse(e.postData.contents);
+  var body = JSON.parse(e.postData.contents);
+  if (body.action === "parseInbox") {
+    return parseInboxAndRespond();
+  }
+  appendMealRow(body);
+  return jsonResponse({ ok: true });
+}
 
+// ---- used by the on-page "解析 Google Drive 收件匣" button ----
+function doGet(e) {
+  if (e.parameter.action === "parseInbox") {
+    return parseInboxAndRespond();
+  }
+  if (e.parameter.action === "ping") {
+    return jsonResponse({ ok: true, pong: true });
+  }
+  return jsonResponse({ ok: false, error: "unknown action" });
+}
+
+function appendMealRow(data) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
   sheet.appendRow([
     data.date || "",
     data.time || "",
@@ -15,8 +35,90 @@ function doPost(e) {
     data.carbs || 0,
     data.fat || 0,
   ]);
+}
 
+// scans the Drive inbox folder for photos, estimates each with Gemini,
+// appends a row per photo, then trashes the processed photo
+function parseInboxAndRespond() {
+  var props = PropertiesService.getScriptProperties();
+  var folderId = props.getProperty("MEALS_INBOX_FOLDER_ID");
+  var apiKey = props.getProperty("GEMINI_API_KEY");
+
+  if (!folderId || !apiKey) {
+    return jsonResponse({
+      ok: false,
+      error: "缺少 Script Properties：MEALS_INBOX_FOLDER_ID 或 GEMINI_API_KEY，請到專案設定裡新增。",
+    });
+  }
+
+  var folder = DriveApp.getFolderById(folderId);
+  var files = folder.getFiles();
+  var processed = [];
+  var failed = [];
+
+  while (files.hasNext()) {
+    var file = files.next();
+    if (file.getMimeType().indexOf("image/") !== 0) continue;
+
+    try {
+      var result = estimateWithGemini(apiKey, file.getBlob());
+      var now = new Date();
+      appendMealRow({
+        date: Utilities.formatDate(now, "Asia/Taipei", "yyyy-MM-dd"),
+        time: Utilities.formatDate(now, "Asia/Taipei", "HH:mm"),
+        description: result.description || "",
+        calories: result.calories || 0,
+        protein: result.protein || 0,
+        carbs: result.carbs || 0,
+        fat: result.fat || 0,
+      });
+      file.setTrashed(true);
+      processed.push(file.getName());
+    } catch (err) {
+      failed.push(file.getName() + "：" + err);
+    }
+  }
+
+  return jsonResponse({ ok: true, processed: processed, failed: failed });
+}
+
+function estimateWithGemini(apiKey, blob) {
+  var prompt =
+    "這是一張食物照片，請估算內容並只回傳純 JSON（不要任何多餘文字或 markdown），" +
+    '格式為 {"description": "...", "calories": 數字, "protein": 數字, "carbs": 數字, "fat": 數字}，' +
+    "description 用繁體中文簡短描述吃了什麼，calories 單位 kcal，其餘單位為公克，是概估值即可。";
+
+  var payload = {
+    contents: [{
+      parts: [
+        { text: prompt },
+        { inline_data: { mime_type: blob.getContentType(), data: Utilities.base64Encode(blob.getBytes()) } },
+      ],
+    }],
+  };
+
+  var resp = UrlFetchApp.fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey,
+    {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true,
+    }
+  );
+
+  var json = JSON.parse(resp.getContentText());
+  if (!json.candidates || !json.candidates.length) {
+    throw new Error("Gemini 沒有回傳結果：" + resp.getContentText());
+  }
+
+  var text = json.candidates[0].content.parts[0].text.trim();
+  text = text.replace(/^```[a-z]*\n?/i, "").replace(/```$/, "").trim();
+  return JSON.parse(text);
+}
+
+function jsonResponse(obj) {
   return ContentService
-    .createTextOutput(JSON.stringify({ ok: true }))
+    .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }

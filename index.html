@@ -286,6 +286,15 @@
       <p class="muted" id="mfStatus" style="margin-top:12px"></p>
     </div>
 
+    <div class="card" style="margin-bottom:14px">
+      <h3>拍照自動估算</h3>
+      <p class="muted" style="margin-top:6px">手機把食物照片存到你設定的 Google Drive 收件匣資料夾，再回來按這顆按鈕，會用 Gemini 自動分析並寫進 Sheet。</p>
+      <div style="margin-top:12px">
+        <button class="btn" id="mfParseInbox">解析 Google Drive 收件匣</button>
+      </div>
+      <p class="muted" id="mfParseStatus" style="margin-top:12px"></p>
+    </div>
+
     <div id="mealLog"><p class="muted">載入中…</p></div>
   </section>
 
@@ -713,6 +722,32 @@ document.getElementById("mfClearLocal").onclick = () => {
     setLocalMeals([]);
     renderAll();
   }
+};
+
+// ---- parse Google Drive inbox via Apps Script (Gemini runs server-side, key never touches the browser) ----
+document.getElementById("mfParseInbox").onclick = () => {
+  const statusEl = document.getElementById("mfParseStatus");
+  if(!MEALS_WRITE_URL){
+    statusEl.textContent = "還沒設定 MEALS_WRITE_URL，無法呼叫 Apps Script。";
+    return;
+  }
+  statusEl.textContent = "分析中…（張數多的話可能要等一下）";
+  fetch(`${MEALS_WRITE_URL}?action=parseInbox`)
+    .then(r=>r.json())
+    .then(res=>{
+      if(!res.ok){
+        statusEl.textContent = "失敗：" + (res.error || "未知錯誤");
+        return;
+      }
+      const n = (res.processed||[]).length;
+      const failN = (res.failed||[]).length;
+      statusEl.textContent = n
+        ? `完成，已新增 ${n} 筆到 Google Sheet${failN?`，${failN} 筆失敗`:""}，重新整理頁面就會看到。`
+        : (failN ? `${failN} 筆分析失敗，檢查收件匣照片或 Script Properties 設定。` : "收件匣裡沒有新照片。");
+    })
+    .catch(()=>{
+      statusEl.textContent = "呼叫失敗（可能是網路或 CORS 問題）。如果 Sheet 裡其實已經寫入了，忽略這則訊息即可，重新整理頁面確認。";
+    });
 };
 </script>
 </body>

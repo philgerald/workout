@@ -60,7 +60,22 @@ Claude／Gemini App 目前沒有寫入你 Google Sheet 的權限，所以是「A
 
 設定好方式 C 之後，表單就不會再顯示 Tab 分隔的文字，而是直接顯示「已送出到 Google Sheet」。
 
-想手動補紀錄或修正估算值，也可以直接編輯 `data/meals.json`（方式 A 用這個）或 Google Sheet 本身（方式 B/C 用這個），格式參考 [data/README.md](data/README.md)。
+### 方式 D：拍照存 Google Drive，網頁按鈕觸發 Gemini 自動分析（全自動、key 不外露）
+
+這個方式全程手機完成，而且 Gemini API key 只存在 Apps Script 的伺服器端設定裡，不會出現在網頁原始碼、也不會被推上 GitHub。前提是方式 C 的 Apps Script 已經部署好。
+
+1. 去 [aistudio.google.com/apikey](https://aistudio.google.com/apikey) 申請一組 Gemini API key
+2. 在 Google Drive 建一個資料夾（例如取名「meals-inbox」），專門放要分析的食物照片。打開這個資料夾，網址列 `folders/` 後面那串英數字就是資料夾 ID，複製起來
+3. 回到你的 Apps Script 專案（跟方式 C 同一個），把 `google-apps-script/Code.gs` 最新版內容整個覆蓋貼上去（比方式 C 當初貼的版本多了 `doGet`、Drive 掃描和 Gemini 呼叫的程式碼）
+4. 左側選單點 **專案設定**（齒輪圖示）→ 往下捲到 **指令碼屬性**，新增兩筆：
+   - `GEMINI_API_KEY` — 你的 Gemini API key
+   - `MEALS_INBOX_FOLDER_ID` — 剛剛複製的 Drive 資料夾 ID
+5. 回到編輯器，**部署 → 管理部署作業**，點現有部署旁邊的鉛筆（編輯），版本選 **新版本**，再按部署——這樣網址（`/exec`）維持不變，但會套用新程式碼
+6. 打開網頁「飲食紀錄」區塊，會看到「拍照自動估算」卡片和一個「解析 Google Drive 收件匣」按鈕
+
+之後流程：手機用 Google Drive App 把食物照片存進 `meals-inbox` 資料夾 → 打開網頁按「解析 Google Drive 收件匣」→ Apps Script 在背景讀取資料夾裡的照片、逐張呼叫 Gemini 估算、寫進 Sheet、刪掉已處理的照片 → 按鈕下方會顯示處理了幾筆 → 重新整理頁面就看得到。
+
+想手動補紀錄或修正估算值，也可以直接編輯 `data/meals.json`（方式 A 用這個）或 Google Sheet 本身（方式 B/C/D 用這個），格式參考 [data/README.md](data/README.md)。
 
 ## 本機測試注意事項
 
