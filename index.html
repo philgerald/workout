@@ -890,20 +890,43 @@ document.getElementById("mfPhotoInput").onchange = async (ev) => {
     statusEl.textContent = "處理照片中…";
     const base64 = await resizeImageFile(file);
 
-    statusEl.textContent = "上傳到 Google Drive 中…";
-    await fetch(MEALS_WRITE_URL, {
-      method: "POST",
-      mode: "no-cors", // avoid relying on cross-origin response reads, which fail on some mobile browsers
-      headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify({
-        action: "uploadPhoto",
-        filename: `meal-${Date.now()}.jpg`,
-        mimeType: "image/jpeg",
-        data: base64,
-      }),
+    statusEl.textContent = `上傳到 Google Drive 中…（約 ${Math.round(base64.length/1365)} KB）`;
+
+    const payload = JSON.stringify({
+      action: "uploadPhoto",
+      filename: `meal-${Date.now()}.jpg`,
+      mimeType: "image/jpeg",
+      data: base64,
     });
 
-    await triggerParseInbox(statusEl, "上傳完成，");
+    // try a readable request first so upload failures are visible; fall back to no-cors
+    let uploadReport = null;
+    try {
+      const res = await fetch(MEALS_WRITE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: payload,
+      });
+      if(res.ok) uploadReport = await res.json();
+      else { statusEl.textContent = `上傳失敗：伺服器回傳 HTTP ${res.status}`; return; }
+    } catch(err){
+      await fetch(MEALS_WRITE_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
+        body: payload,
+      });
+    }
+
+    if(uploadReport && uploadReport.ok === false){
+      statusEl.textContent = "上傳失敗：" + (uploadReport.error || "未知錯誤");
+      return;
+    }
+
+    const label = uploadReport && uploadReport.filename
+      ? `已存入 Drive（${uploadReport.filename}），`
+      : "上傳完成，";
+    await triggerParseInbox(statusEl, label);
   } catch(err){
     statusEl.textContent = "發生錯誤：" + err.message;
   }
