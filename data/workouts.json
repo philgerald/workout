@@ -9,5 +9,16 @@
     "avgHr": 102,
     "distanceKm": null,
     "source": "garmin"
+  },
+  {
+    "id": "garmin-23805776109",
+    "date": "2026-08-01",
+    "type": "running",
+    "typeLabel": "跑步",
+    "durationMin": 23,
+    "calories": 157,
+    "avgHr": 131,
+    "distanceKm": 2.22,
+    "source": "garmin"
   }
 ]
